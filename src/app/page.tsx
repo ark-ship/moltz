@@ -30,10 +30,10 @@ export default function Home() {
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
 
-  // --- IDENTITY RESOLVER (BASENAMES) ---
+  // --- IDENTITY RESOLVER (FIXED: NO CHAINID) ---
   const resolveIdentity = async (address: string) => {
     try {
-      // Fetches the Primary BaseName (e.g., moltzlabs.base.eth)
+      // Fix: The new version of OnchainKit handles network automatically
       const basename = await getName({ address: address as `0x${string}` });
       return basename || `${address.slice(0, 6)}...${address.slice(-4)}`;
     } catch (e) {
@@ -51,7 +51,7 @@ export default function Home() {
         const count = await contract.totalSupply();
         setMintedCount(Number(count));
 
-        // Fetch last 8 mints directly from the blockchain
+        // Scanning last blocks for history
         const filter = contract.filters.Transfer("0x0000000000000000000000000000000000000000");
         const events = await contract.queryFilter(filter, -15000); 
         const latestEvents = events.reverse().slice(0, 8);
@@ -164,7 +164,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white font-mono p-6 md:p-12 uppercase selection:bg-red-600">
       
-      {/* HEADER */}
       <header className="max-w-6xl mx-auto flex justify-between items-start border-b border-zinc-900 pb-8">
         <div>
           <h1 className="text-6xl font-black tracking-tighter text-red-600 italic leading-none">MOLTZ</h1>
@@ -178,7 +177,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* MAIN SECTION */}
       <div className="max-w-6xl mx-auto mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-b border-zinc-900 pb-20">
         <div className="space-y-10">
           <div className="bg-red-600 text-black p-2 text-center font-black tracking-[0.5em] italic animate-pulse">
@@ -199,9 +197,9 @@ export default function Home() {
               <span>MODE: LOCAL_TERMINAL</span>
               <span>INJECTION_FEE: {MINT_PRICE}</span>
             </div>
-            <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide font-bold">
+            <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide font-bold text-green-500">
               {terminalLogs.map((log, i) => (
-                <div key={i} className={log.includes("[ERROR]") ? "text-red-500" : "text-green-500"}>
+                <div key={i} className={log.includes("[ERROR]") ? "text-red-500" : ""}>
                   {log}
                 </div>
               ))}
@@ -265,7 +263,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* RECENT INJECTIONS */}
       <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
           <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -284,7 +281,6 @@ export default function Home() {
           </div>
       </div>
 
-      {/* GALLERY FEED */}
       <div className="max-w-6xl mx-auto mt-20 mb-40">
         <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
