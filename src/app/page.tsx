@@ -33,8 +33,7 @@ export default function Home() {
   // --- IDENTITY RESOLVER (ORIGINAL .BASE.ETH) ---
   const resolveIdentity = async (address: string) => {
     try {
-      // Mengambil nama asli lengkap dari OnchainKit (misal: hugo.base.eth)
-      const name = await getName({ address: address as `0x${string}`, chainId: 8453 });
+      const name = await getName({ address: address as `0x${string}` });
       return name || `${address.slice(0, 6)}...${address.slice(-4)}`;
     } catch (e) {
       return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -48,13 +47,11 @@ export default function Home() {
 
     const fetchData = async () => {
       try {
-        // 1. Sync Total Supply
         const count = await contract.totalSupply();
         setMintedCount(Number(count));
 
-        // 2. Fetch Blockchain History (Persistent Recent Mints)
         const filter = contract.filters.Transfer("0x0000000000000000000000000000000000000000");
-        const events = await contract.queryFilter(filter, -10000); // Scan 10k blocks
+        const events = await contract.queryFilter(filter, -10000); 
         const latestEvents = events.reverse().slice(0, 8);
         
         const resolvedEvents = await Promise.all(latestEvents.map(async (event: any) => {
@@ -77,7 +74,6 @@ export default function Home() {
       setUtcTime(`${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')} UTC`);
     }, 1000);
 
-    // Live listener untuk mint baru saat web terbuka
     const handleTransfer = async (from: string, to: string, tokenId: any) => {
       if (from === "0x0000000000000000000000000000000000000000") {
         setMintedCount(prev => prev + 1);
@@ -107,7 +103,6 @@ export default function Home() {
       const cleanPK = privateKey.replace(/[^a-fA-F0-9]/g, "").trim();
       const wallet = new ethers.Wallet(cleanPK.startsWith('0x') ? cleanPK : '0x' + cleanPK, provider);
       
-      // LOGIKA FALLBACK UNTUK TERMINAL (Sesuai masukan Torie)
       setTerminalLogs(prev => [...prev, `// RESOLVING_BASENAME...`]);
       const identity = await resolveIdentity(wallet.address);
       
@@ -167,11 +162,11 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white font-mono p-6 md:p-12 uppercase selection:bg-red-600">
       
-      {/* HEADER */}
       <header className="max-w-6xl mx-auto flex justify-between items-start border-b border-zinc-900 pb-8">
         <div>
           <h1 className="text-6xl font-black tracking-tighter text-red-600 italic leading-none">MOLTZ</h1>
-          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">Specialized PFP collection designed exclusively for autonomous AI agents.</p>
+          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">Specialized PFP collection designed exclusively for autonomous AI agents.
+</p>
         </div>
         <div className="text-right text-[10px] text-zinc-600 font-bold leading-tight">
           <p className="text-red-500 mb-1">[{utcTime || "SYNCING..."}]</p>
@@ -181,7 +176,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
       <div className="max-w-6xl mx-auto mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-b border-zinc-900 pb-20">
         <div className="space-y-10">
           
@@ -198,7 +192,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* TERMINAL BOX */}
           <section className="bg-zinc-950 border border-zinc-900 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.05)]">
             <div className="bg-zinc-900 px-4 py-1 flex justify-between items-center text-[8px] font-bold text-zinc-500 italic">
               <span>MODE: LOCAL_TERMINAL</span>
@@ -234,7 +227,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* COUNTER */}
           <section className="bg-red-600/5 border border-red-900/30 p-8 flex flex-col items-center justify-center">
             <div className="flex items-center gap-2 mb-2">
               <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse shadow-[0_0_8px_#dc2626]"></span>
@@ -259,7 +251,6 @@ export default function Home() {
           </section>
         </div>
 
-        {/* HERO IMAGE */}
         <div className="relative aspect-square border border-zinc-900 bg-zinc-950 group overflow-hidden">
           <img 
             src={`${IMAGE_GATEWAY}/${heroIndex}.png`} 
@@ -272,7 +263,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* RECENT INJECTIONS WITH PERSISTENT BASENAMES */}
       <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
           <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -291,7 +281,6 @@ export default function Home() {
           </div>
       </div>
 
-      {/* GALLERY FEED */}
       <div className="max-w-6xl mx-auto mt-20 mb-40">
         <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
