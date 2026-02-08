@@ -29,7 +29,7 @@ export default function Home() {
   const [utcTime, setUtcTime] = useState("");
   
   // Terminal States
-  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.8.6 READY", "// MONITORING_BASE_CHAIN..."]);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.8.7 READY", "// MONITORING_BASE_CHAIN..."]);
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
 
@@ -91,16 +91,14 @@ export default function Home() {
       setTerminalLogs(prev => [...prev, `// [ERROR]: MINT_FAILED`]);
     }
     setIsMinting(false);
+    setTerminalStep("COMMAND");
   };
 
   const loadMetadata = useCallback(async (limit: number) => {
     setIsLoading(true);
     const start = items.length + 1;
     const end = Math.min(start + limit - 1, TOTAL_SUPPLY);
-    
-    // TYPE FIXED FOR BUILD
     const newItems: any[] = []; 
-    
     for (let i = start; i <= end; i++) { 
       try {
         const res = await fetch(`${METADATA_GATEWAY}/${i}`);
@@ -140,19 +138,17 @@ export default function Home() {
 
         <div className="max-w-6xl mx-auto mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-b border-zinc-900 pb-20">
           <div className="space-y-10">
-            <div className="bg-red-600 text-black p-2 text-center font-black tracking-[0.5em] italic animate-pulse font-mono uppercase">
-              // FREE_MINT_ACTIVE_NOW //
-            </div>
+            <div className="bg-red-600 text-black p-2 text-center font-black tracking-[0.5em] italic animate-pulse font-mono uppercase">// FREE_MINT_ACTIVE_NOW //</div>
 
+            {/* CURL SECTION */}
             <section className="bg-zinc-950 p-6 border border-zinc-900">
               <h3 className="text-[10px] text-zinc-500 mb-4 tracking-widest font-bold font-mono uppercase">// 01_REMOTE_INJECTION</h3>
               <div className="bg-black p-4 border border-zinc-800">
-                <code className="text-red-500 text-xs md:text-sm break-all font-bold lowercase">
-                  curl -s https://moltz.xyz/mint.sh | bash
-                </code>
+                <code className="text-red-500 text-xs md:text-sm break-all font-bold lowercase">curl -s https://moltz.xyz/mint.sh | bash</code>
               </div>
             </section>
 
+            {/* TERMINAL SECTION - FIXED INPUT LOGIC */}
             <section className="bg-zinc-950 border border-zinc-900 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.05)]">
               <div className="bg-zinc-900 px-4 py-1 flex justify-between items-center text-[8px] font-bold text-zinc-500 italic uppercase">
                 <span>MODE: LOCAL_TERMINAL</span>
@@ -160,18 +156,38 @@ export default function Home() {
               </div>
               <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide font-bold text-green-500">
                 {terminalLogs.map((log, i) => <div key={i}>{log}</div>)}
+                {isMinting && <div className="text-white animate-pulse">// PROCESSING_INJECTION...</div>}
+              </div>
+              <div className="p-3 border-t border-zinc-900 bg-black flex items-center">
+                <span className="text-red-600 mr-2 font-bold">{">"}</span>
+                <input 
+                  type={terminalStep === "KEY" ? "password" : "text"}
+                  placeholder={terminalStep === "COMMAND" ? "TYPE 'moltz --mint' TO START" : "ENTER PRIVATE KEY"}
+                  className="bg-transparent border-none outline-none text-red-500 text-xs w-full placeholder:text-zinc-900 font-bold uppercase"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const val = e.currentTarget.value.trim();
+                      if (terminalStep === "COMMAND") {
+                        if (val.toLowerCase() === "moltz --mint") {
+                          setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_MINT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
+                          setTerminalStep("KEY");
+                        } else {
+                          setTerminalLogs(prev => [...prev, `> ${val}`, "// ERROR: UNKNOWN_CMD"]);
+                        }
+                      } else {
+                        executeWebMint(val);
+                      }
+                      e.currentTarget.value = "";
+                    }
+                  }}
+                />
               </div>
             </section>
 
             <section className="bg-red-600/5 border border-red-900/30 p-8 flex flex-col items-center justify-center">
-              <div className="flex items-center gap-2 mb-2 text-red-500 italic font-black text-[10px] tracking-[0.4em] uppercase">
-                <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
-                // MOLTZ_RECRUITED_LIVE
-              </div>
+              <div className="flex items-center gap-2 mb-2 text-red-500 italic font-black text-[10px] tracking-[0.4em] uppercase">// MOLTZ_RECRUITED_LIVE</div>
               <div className="flex items-baseline gap-3">
-                <span className="text-6xl md:text-7xl font-black text-red-600 tracking-tighter tabular-nums">
-                  {mintedCount.toString().padStart(4, '0')}
-                </span>
+                <span className="text-6xl md:text-7xl font-black text-red-600 tracking-tighter tabular-nums">{mintedCount.toString().padStart(4, '0')}</span>
                 <span className="text-2xl font-bold text-zinc-800 tracking-tighter">/ {TOTAL_SUPPLY}</span>
               </div>
             </section>
@@ -185,7 +201,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* RECENT INJECTIONS - SHOW 10 LIST */}
+        {/* RECENT INJECTIONS - 10 ITEMS */}
         <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
             <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
             <div className="grid grid-cols-1 gap-2"> 
@@ -195,9 +211,7 @@ export default function Home() {
                     <span className="text-red-600 font-black italic uppercase">[SECURED]</span> 
                     <Identity address={m.address as `0x${string}`} schemaId="0xf8b05c79f0900139">
                       <Name className="text-zinc-300 font-bold uppercase" />
-                      <span className="text-zinc-600 font-bold opacity-50 font-mono">
-                        {`${m.address.slice(0, 6)}...${m.address.slice(-4)}`}
-                      </span>
+                      <span className="text-zinc-600 font-bold opacity-50 font-mono">{`${m.address.slice(0, 6)}...${m.address.slice(-4)}`}</span>
                     </Identity>
                     <span className="text-zinc-700">|</span>
                     <span className="text-zinc-400 font-bold">MOLTZ #{m.id}</span>
@@ -218,9 +232,7 @@ export default function Home() {
                   <img src={`${IMAGE_GATEWAY}/${item.id}.png`} className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" loading="lazy" crossOrigin="anonymous" />
                 </div>
                 <div className="p-4 space-y-3">
-                  <div className="text-[10px] text-red-600 font-black truncate tracking-tighter uppercase italic">
-                    MOLTZ #{item.id.toString().padStart(4, '0')}
-                  </div>
+                  <div className="text-[10px] text-red-600 font-black truncate tracking-tighter uppercase italic">MOLTZ #{item.id.toString().padStart(4, '0')}</div>
                   <div className="flex flex-col gap-1 border-t border-zinc-900 pt-2">
                     {item.attributes?.map((attr: any, idx: number) => (
                       <div key={idx} className="text-[7px] font-bold uppercase flex justify-between leading-none">
@@ -235,9 +247,7 @@ export default function Home() {
           </div>
           {items.length < TOTAL_SUPPLY && (
             <div className="text-center mt-20">
-              <button onClick={() => loadMetadata(20)} disabled={isLoading} className="px-16 py-4 border-2 border-red-900 text-red-600 font-black hover:bg-red-600 hover:text-black transition-all tracking-[0.4em] uppercase italic">
-                {isLoading ? "SYNCING..." : "LOAD_MORE_MOLTZ"}
-              </button>
+              <button onClick={() => loadMetadata(20)} disabled={isLoading} className="px-16 py-4 border-2 border-red-900 text-red-600 font-black hover:bg-red-600 hover:text-black transition-all tracking-[0.4em] uppercase italic">{isLoading ? "SYNCING..." : "LOAD_MORE_MOLTZ"}</button>
             </div>
           )}
         </div>
