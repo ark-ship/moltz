@@ -29,7 +29,7 @@ export default function Home() {
   const [utcTime, setUtcTime] = useState("");
   
   // Terminal States
-  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.8.5 READY", "// MONITORING_BASE_CHAIN..."]);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.8.6 READY", "// MONITORING_BASE_CHAIN..."]);
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
 
@@ -45,7 +45,7 @@ export default function Home() {
 
         const filter = contract.filters.Transfer("0x0000000000000000000000000000000000000000");
         const events = await contract.queryFilter(filter, -9000); 
-        const latestEvents = events.reverse().slice(0, 10); // AMBIL 10 DATA
+        const latestEvents = events.reverse().slice(0, 10);
         
         setRecentMints(latestEvents.map((event: any) => ({
           address: event.args[1],
@@ -88,17 +88,19 @@ export default function Home() {
       await tx.wait();
       setTerminalLogs(prev => [...prev, "// INJECTION_SUCCESSFUL"]);
     } catch (error: any) {
-      setTerminalLogs(prev => [...prev, `// [ERROR]: ${error.message.slice(0, 40)}`]);
+      setTerminalLogs(prev => [...prev, `// [ERROR]: MINT_FAILED`]);
     }
     setIsMinting(false);
-    setTerminalStep("COMMAND");
   };
 
   const loadMetadata = useCallback(async (limit: number) => {
     setIsLoading(true);
     const start = items.length + 1;
     const end = Math.min(start + limit - 1, TOTAL_SUPPLY);
-    const newItems = [];
+    
+    // TYPE FIXED FOR BUILD
+    const newItems: any[] = []; 
+    
     for (let i = start; i <= end; i++) { 
       try {
         const res = await fetch(`${METADATA_GATEWAY}/${i}`);
@@ -158,27 +160,6 @@ export default function Home() {
               </div>
               <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide font-bold text-green-500">
                 {terminalLogs.map((log, i) => <div key={i}>{log}</div>)}
-                {isMinting && <div className="text-white animate-pulse">// PROCESSING_INJECTION...</div>}
-              </div>
-              <div className="p-3 border-t border-zinc-900 bg-black flex items-center">
-                <span className="text-red-600 mr-2 font-bold">{">"}</span>
-                <input 
-                  type={terminalStep === "KEY" ? "password" : "text"}
-                  placeholder={terminalStep === "COMMAND" ? "TYPE 'moltz --mint' TO START" : "ENTER PRIVATE KEY"}
-                  className="bg-transparent border-none outline-none text-red-500 text-xs w-full placeholder:text-zinc-900 font-bold uppercase"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const val = e.currentTarget.value.trim();
-                      if (terminalStep === "COMMAND") {
-                        if (val.toLowerCase() === "moltz --mint") {
-                          setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_MINT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
-                          setTerminalStep("KEY");
-                        } else { setTerminalLogs(prev => [...prev, `> ${val}`, "// ERROR: UNKNOWN_CMD"]); }
-                      } else { executeWebMint(val); }
-                      e.currentTarget.value = "";
-                    }
-                  }}
-                />
               </div>
             </section>
 
@@ -204,10 +185,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* RECENT INJECTIONS - FIX 10 ITEMS LIST */}
+        {/* RECENT INJECTIONS - SHOW 10 LIST */}
         <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
             <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
-            <div className="grid grid-cols-1 gap-2"> {/* DIUBAH KE 1 KOLOM UNTUK LIST PANJANG */}
+            <div className="grid grid-cols-1 gap-2"> 
               {recentMints.map((m, i) => (
                 <div key={i} className="text-[10px] text-zinc-500 border-l-2 border-red-900 pl-4 py-3 flex justify-between bg-zinc-950/20 items-center">
                   <span className="flex items-center gap-2">
@@ -227,7 +208,7 @@ export default function Home() {
             </div>
         </div>
 
-        {/* FEED GALLERY - FIX TRAIT DISPLAY */}
+        {/* FEED GALLERY - TRAITS: TYPE: VALUE */}
         <div className="max-w-6xl mx-auto mt-20 mb-40">
           <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
@@ -240,8 +221,6 @@ export default function Home() {
                   <div className="text-[10px] text-red-600 font-black truncate tracking-tighter uppercase italic">
                     MOLTZ #{item.id.toString().padStart(4, '0')}
                   </div>
-                  
-                  {/* TRAITS DISPLAY: TYPE: VALUE */}
                   <div className="flex flex-col gap-1 border-t border-zinc-900 pt-2">
                     {item.attributes?.map((attr: any, idx: number) => (
                       <div key={idx} className="text-[7px] font-bold uppercase flex justify-between leading-none">
@@ -262,12 +241,6 @@ export default function Home() {
             </div>
           )}
         </div>
-
-        <footer className="max-w-6xl mx-auto py-20 border-t border-zinc-900 text-center">
-          <p className="text-[8px] text-zinc-800 tracking-[0.6em] font-black italic uppercase">
-            © 2026 MOLTZ_LABS // ACCESS_ONLY // BASED_ON_BASE
-          </p>
-        </footer>
       </main>
     </OnchainKitProvider>
   );
