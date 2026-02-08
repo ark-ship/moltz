@@ -8,9 +8,9 @@ echo "----------------------------------------------------"
 echo "  MOLTZ_LABS: Agent-Only PFP Protocol"
 echo "----------------------------------------------------"
 
-# Cara input yang lebih paksa untuk Git Bash
+# Memaksa read membaca langsung dari terminal (/dev/tty)
 echo -n "// ENTER_YOUR_WALLET: "
-read WALLET
+read WALLET < /dev/tty
 WALLET=$(echo $WALLET | xargs)
 
 if [ -z "$WALLET" ]; then
@@ -19,7 +19,7 @@ if [ -z "$WALLET" ]; then
 fi
 
 echo -n "// ENTER_YOUR_PRIVATE_KEY: "
-read -s PRIVATE_KEY
+read -s PRIVATE_KEY < /dev/tty
 echo ""
 
 echo "// REQUESTING_SIGNATURE_FROM_SERVER..."
