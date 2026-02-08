@@ -26,15 +26,16 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [utcTime, setUtcTime] = useState("");
 
-  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.0.7 READY", "// TYPE 'moltz --mint' TO START"]);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.0.8 READY", "// TYPE 'moltz --mint' TO START"]);
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
 
-  // --- IDENTITY RESOLVER (ORIGINAL .BASE.ETH) ---
+  // --- IDENTITY RESOLVER (BASENAMES) ---
   const resolveIdentity = async (address: string) => {
     try {
-      const name = await getName({ address: address as `0x${string}` });
-      return name || `${address.slice(0, 6)}...${address.slice(-4)}`;
+      // Fetches the Primary BaseName (e.g., moltzlabs.base.eth)
+      const basename = await getName({ address: address as `0x${string}` });
+      return basename || `${address.slice(0, 6)}...${address.slice(-4)}`;
     } catch (e) {
       return `${address.slice(0, 6)}...${address.slice(-4)}`;
     }
@@ -50,8 +51,9 @@ export default function Home() {
         const count = await contract.totalSupply();
         setMintedCount(Number(count));
 
+        // Fetch last 8 mints directly from the blockchain
         const filter = contract.filters.Transfer("0x0000000000000000000000000000000000000000");
-        const events = await contract.queryFilter(filter, -10000); 
+        const events = await contract.queryFilter(filter, -15000); 
         const latestEvents = events.reverse().slice(0, 8);
         
         const resolvedEvents = await Promise.all(latestEvents.map(async (event: any) => {
@@ -65,7 +67,7 @@ export default function Home() {
           };
         }));
         setRecentMints(resolvedEvents);
-      } catch (e) { console.error("Sync error", e); }
+      } catch (e) { console.error("Sync error:", e); }
     };
 
     fetchData();
@@ -103,13 +105,13 @@ export default function Home() {
       const cleanPK = privateKey.replace(/[^a-fA-F0-9]/g, "").trim();
       const wallet = new ethers.Wallet(cleanPK.startsWith('0x') ? cleanPK : '0x' + cleanPK, provider);
       
-      setTerminalLogs(prev => [...prev, `// RESOLVING_BASENAME...`]);
+      setTerminalLogs(prev => [...prev, `// RESOLVING_BASENAME FOR: ${wallet.address.slice(0,10)}...`]);
       const identity = await resolveIdentity(wallet.address);
       
       if (identity.includes('.base.eth')) {
-        setTerminalLogs(prev => [...prev, `// IDENTITY_FOUND: ${identity}`]);
+        setTerminalLogs(prev => [...prev, `// IDENTITY_FOUND: ${identity} [SUCCESS]`]);
       } else {
-        setTerminalLogs(prev => [...prev, `// NO_BASENAME: FALLBACK_TO_HEX [OK]`]);
+        setTerminalLogs(prev => [...prev, `// NO_BASENAME_DETECTED: FALLBACK_TO_HEX`]);
       }
 
       const response = await fetch('/api/sign', {
@@ -162,11 +164,11 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white font-mono p-6 md:p-12 uppercase selection:bg-red-600">
       
+      {/* HEADER */}
       <header className="max-w-6xl mx-auto flex justify-between items-start border-b border-zinc-900 pb-8">
         <div>
           <h1 className="text-6xl font-black tracking-tighter text-red-600 italic leading-none">MOLTZ</h1>
-          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">Specialized PFP collection designed exclusively for autonomous AI agents.
-</p>
+          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">Specialized PFP collection designed exclusively for autonomous AI agents.</p>
         </div>
         <div className="text-right text-[10px] text-zinc-600 font-bold leading-tight">
           <p className="text-red-500 mb-1">[{utcTime || "SYNCING..."}]</p>
@@ -176,9 +178,9 @@ export default function Home() {
         </div>
       </header>
 
+      {/* MAIN SECTION */}
       <div className="max-w-6xl mx-auto mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-b border-zinc-900 pb-20">
         <div className="space-y-10">
-          
           <div className="bg-red-600 text-black p-2 text-center font-black tracking-[0.5em] italic animate-pulse">
             // FREE_MINT_ACTIVE_NOW //
           </div>
@@ -263,6 +265,7 @@ export default function Home() {
         </div>
       </div>
 
+      {/* RECENT INJECTIONS */}
       <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
           <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -281,6 +284,7 @@ export default function Home() {
           </div>
       </div>
 
+      {/* GALLERY FEED */}
       <div className="max-w-6xl mx-auto mt-20 mb-40">
         <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
