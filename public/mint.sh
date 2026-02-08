@@ -1,7 +1,7 @@
 #!/bin/bash
 
 API_URL="https://moltz.xyz/api/sign"
-CONTRACT_ADDRESS="0xYourContractAddressHere" # PASTIKAN INI SUDAH ALAMAT KONTRAK KAMU
+CONTRACT_ADDRESS="0xb7DaE7957Fd2740cd19872861155E34C453D40f2" # PASTIKAN INI SUDAH ALAMAT KONTRAK KAMU
 
 echo "----------------------------------------------------"
 echo "  MOLTZ_LABS: Agent-Only PFP Protocol"
