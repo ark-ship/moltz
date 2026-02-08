@@ -10,41 +10,51 @@ echo "  MOLTZ_LABS: Agent-Only PFP Protocol"
 echo "----------------------------------------------------"
 
 # 1. INPUT DATA
-read -p "// ENTER_YOUR_WALLET: " WALLET
-read -s -p "// ENTER_YOUR_PRIVATE_KEY (FOR GAS): " PRIVATE_KEY
+# Menggunakan -r agar karakter backslash tidak dianggap aneh
+read -r -p "// ENTER_YOUR_WALLET: " RAW_WALLET
+# Menghapus spasi yang tidak sengaja terketik di awal atau akhir
+WALLET=$(echo $RAW_WALLET | xargs)
+
+if [ -z "$WALLET" ]; then
+    echo "[ERROR] WALLET_ADDRESS_REQUIRED"
+    exit 1
+fi
+
+read -r -s -p "// ENTER_YOUR_PRIVATE_KEY (FOR GAS): " PRIVATE_KEY
 echo ""
 
-# 2. REQUEST SIGNATURE FROM API
+# 2. REQUEST SIGNATURE FROM SERVER
 echo "// REQUESTING_SIGNATURE_FROM_SERVER..."
 
-# Menggunakan format JSON yang aman untuk Bash
+# Mengirim data dengan format JSON yang strict
 RESPONSE=$(curl -s -X POST "$API_URL" \
      -H "Content-Type: application/json" \
      -d "{\"wallet\":\"$WALLET\"}")
 
-# Ekstrak signature dari respon JSON
-SIGNATURE=$(echo $RESPONSE | grep -oP '(?<="signature":")[^"]*')
+# Ekstrak signature menggunakan sed agar kompatibel di semua terminal (Git Bash/Linux/Mac)
+SIGNATURE=$(echo "$RESPONSE" | sed -n 's/.*"signature":"\([^"]*\)".*/\1/p')
 
+# 3. VERIFIKASI SIGNATURE
 if [ -z "$SIGNATURE" ] || [ "$SIGNATURE" == "null" ]; then
-    echo "[ERROR] AUTHORIZATION_FAILED: API did not return a valid signature."
-    echo "Respon Server: $RESPONSE"
+    echo "[ERROR] AUTHORIZATION_FAILED"
+    echo "SERVER_RESPONSE: $RESPONSE"
+    echo "DEBUG_WALLET_SENT: '$WALLET'"
     exit 1
 fi
 
 echo "// SIGNATURE_RECEIVED: ${SIGNATURE:0:10}...${SIGNATURE: -10}"
 
-# 3. EXECUTE MINTING (Using Cast from Foundry)
-# Jika user belum install foundry, kita arahkan. 
-# Jika kamu pakai library lain di terminal, sesuaikan baris ini.
+# 4. EXECUTE ON-CHAIN INJECTION
 echo "// INJECTING_MOLTZ_TO_BLOCKCHAIN..."
 
-# Contoh menggunakan 'cast' (Foundry) untuk eksekusi transaksi
-# Fungsi mint kamu: mint(uint256 amount, bytes signature)
-cast send $CONTRACT_ADDRESS "mint(uint256,bytes)" 1 "$SIGNATURE" \
-    --rpc-url $RPC_URL \
-    --private-key $PRIVATE_KEY \
+# Menggunakan 'cast' dari Foundry untuk eksekusi transaksi di Base Mainnet
+# Pastikan saldo ETH di Base cukup (Mint 0.0005 + Gas)
+cast send "$CONTRACT_ADDRESS" "mint(uint256,bytes)" 1 "$SIGNATURE" \
+    --rpc-url "$RPC_URL" \
+    --private-key "$PRIVATE_KEY" \
     --value 0.0005ether
 
 echo "----------------------------------------------------"
-echo "  INJECTION_COMPLETE: CHECK MOLTZ.XYZ"
+echo "  INJECTION_COMPLETE: ACCESS GRANTED"
+echo "  CHECK YOUR AGENT AT https://moltz.xyz"
 echo "----------------------------------------------------"
