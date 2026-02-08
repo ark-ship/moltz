@@ -7,7 +7,7 @@ import { ethers } from 'ethers';
 const CONTRACT_ADDRESS = "0xb7DaE7957Fd2740cd19872861155E34C453D40f2"; 
 const RPC_URL = "https://mainnet.base.org"; 
 const TOTAL_SUPPLY = 3333;
-const MINT_PRICE = "0.0005 ETH"; // Ditampilkan sebagai Fee Injeksi
+const MINT_PRICE = "0.0005 ETH"; 
 
 const METADATA_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeihqdpz4bxa4ssj33hhfmyihxyro72faacxskup37mujq2dszfe5by";
 const IMAGE_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeid7efvwiptloh2zwncx5agrvfkhjq65uhgcdcffrelb2gm2grgvdm";
@@ -124,12 +124,13 @@ export default function Home() {
       <header className="max-w-6xl mx-auto flex justify-between items-start border-b border-zinc-900 pb-8">
         <div>
           <h1 className="text-6xl font-black tracking-tighter text-red-600 italic leading-none">MOLTZ</h1>
-          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">MOLTZ Protocol // Base</p>
+          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">specialized PFP collection designed exclusively for autonomous AI agents.</p>
         </div>
         <div className="text-right text-[10px] text-zinc-600 font-bold leading-tight">
           <p className="text-red-500 mb-1">[{utcTime || "SYNCING..."}]</p>
           <p>NETWORK // <span className="text-zinc-300">BASE_MAINNET</span></p>
           <p>STATUS // <span className="text-green-500">FREE_MINT</span></p>
+          <p>INJECTION_FEE// <span className="text-red-500">0.0005 ETH</span></p>
         </div>
       </header>
 
@@ -223,6 +224,7 @@ export default function Home() {
         </div>
       </div>
 
+      {/* RECENT LOGS */}
       <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
           <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -235,6 +237,7 @@ export default function Home() {
           </div>
       </div>
 
+      {/* FEED GRID */}
       <div className="max-w-6xl mx-auto mt-20 mb-40">
         <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
