@@ -1,31 +1,35 @@
-import { NextResponse } from "next/server";
-import { ethers } from "ethers";
+// src/app/api/sign/route.ts
+
+import { NextResponse } from 'next/server';
+import { ethers } from 'ethers';
 
 export async function POST(req: Request) {
   try {
-    const rawText = await req.text();
-    const cleanText = rawText.replace(/[^\x20-\x7E]/g, "");
-    const addressMatch = cleanText.match(/0x[a-fA-F0-9]{40}/);
-    
-    if (!addressMatch) {
-      return NextResponse.json({ error: "INVALID_ADDRESS_FORMAT" }, { status: 400 });
+    const { wallet } = await req.json();
+
+    // HAPUS ATAU KOMENTAR BAGIAN WHITELIST INI:
+    /*
+    const isWhitelisted = await checkWhitelist(wallet);
+    if (!isWhitelisted) {
+      return NextResponse.json({ error: 'AUTHORIZATION_FAILED' }, { status: 403 });
     }
-    
-    const address = addressMatch[0];
-    const privateKey = (process.env.SIGNER_PRIVATE_KEY || "").replace(/[^a-fA-F0-9]/g, "").trim();
+    */
 
-    if (privateKey.length < 64) {
-      return NextResponse.json({ error: "SIGNER_KEY_NOT_CONFIGURED" }, { status: 500 });
-    }
+    // LANGSUNG PROSES SIGNATURE UNTUK SEMUA WALLET
+    const privateKey = process.env.SIGNER_PRIVATE_KEY;
+    if (!privateKey) throw new Error("Missing Signer Key");
 
-    const wallet = new ethers.Wallet(privateKey);
-    // Standard signature for 1 NFT mint
-    const messageHash = ethers.solidityPackedKeccak256(["address", "uint256"], [address, 1]);
-    const signature = await wallet.signMessage(ethers.getBytes(messageHash));
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+    const signer = new ethers.Wallet(privateKey, provider);
 
-    console.log(`// AUTH_GRANTED: ${address}`);
-    return NextResponse.json({ signature, status: "AUTHORIZED" });
-  } catch (err: any) {
-    return NextResponse.json({ error: "SERVER_ERROR", detail: err.message }, { status: 500 });
+    // Logika pembuatan signature kamu di sini
+    const messageHash = ethers.solidityPackedKeccak256(["address"], [wallet]);
+    const signature = await signer.signMessage(ethers.getBytes(messageHash));
+
+    return NextResponse.json({ signature });
+
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'SERVER_ERROR' }, { status: 500 });
   }
 }
