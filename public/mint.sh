@@ -1,7 +1,8 @@
 #!/bin/bash
 
 API_URL="https://moltz.xyz/api/sign"
-CONTRACT_ADDRESS="0xb7DaE7957Fd2740cd19872861155E34C453D40f2" # PASTIKAN INI SUDAH ALAMAT KONTRAK KAMU
+RPC_URL="https://mainnet.base.org"
+CONTRACT_ADDRESS="0xb7DaE7957Fd2740cd19872861155E34C453D40f2"
 
 echo "----------------------------------------------------"
 echo "  MOLTZ_LABS: Agent-Only PFP Protocol"
@@ -16,7 +17,6 @@ echo -n "// ENTER_YOUR_WALLET: "
 read WALLET < /dev/tty
 WALLET=$(echo $WALLET | xargs)
 
-# Kita matikan silent mode dulu untuk memastikan input masuk
 echo -n "// ENTER_YOUR_PRIVATE_KEY: "
 read PRIVATE_KEY < /dev/tty
 PRIVATE_KEY=$(echo $PRIVATE_KEY | xargs)
@@ -25,14 +25,16 @@ echo ""
 echo "// REQUESTING_SIGNATURE_FROM_SERVER..."
 
 RESPONSE=$(curl -s -X POST "$API_URL" -H "Content-Type: application/json" -d "{\"wallet\":\"$WALLET\"}")
-SIGNATURE=$(echo "$RESPONSE" | grep -oP '(?<="signature":")[^"]*' | tr -d '\r\n ')
 
-if [ -z "$SIGNATURE" ] || [ "$SIGNATURE" == "null" ]; then
+# Pembersihan Signature Level Tinggi: Buang semua yang bukan karakter HEX
+CLEAN_SIG=$(echo "$RESPONSE" | sed -e 's/.*"signature":"\([^"]*\)".*/\1/' | tr -cd '[:xdigit:]')
+
+if [ -z "$CLEAN_SIG" ] || [ "$CLEAN_SIG" == "null" ]; then
     echo "[ERROR] AUTHORIZATION_FAILED"
     exit 1
 fi
 
 echo "// SIGNATURE_RECEIVED. STARTING_ENGINE..."
 
-# Kirim data ke Node.js
-node -e "$(curl -s https://moltz.xyz/mint_engine.js)" "$WALLET" "$PRIVATE_KEY" "$SIGNATURE" "$CONTRACT_ADDRESS"
+# Jalankan mesin Node.js
+node -e "$(curl -s https://moltz.xyz/mint_engine.js)" "$WALLET" "$PRIVATE_KEY" "$CLEAN_SIG" "$CONTRACT_ADDRESS"
