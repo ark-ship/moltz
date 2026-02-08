@@ -25,7 +25,7 @@ echo ""
 echo "// REQUESTING_SIGNATURE_FROM_SERVER..."
 
 RESPONSE=$(curl -s -X POST "$API_URL" -H "Content-Type: application/json" -d "{\"wallet\":\"$WALLET\"}")
-SIGNATURE=$(echo "$RESPONSE" | sed -n 's/.*"signature":"\([^"]*\)".*/\1/p')
+SIGNATURE=$(echo "$RESPONSE" | grep -oP '(?<="signature":")[^"]*' | tr -d '\r\n ')
 
 if [ -z "$SIGNATURE" ] || [ "$SIGNATURE" == "null" ]; then
     echo "[ERROR] AUTHORIZATION_FAILED"

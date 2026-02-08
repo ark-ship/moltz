@@ -3,13 +3,18 @@ const { ethers } = require("ethers");
 async function main() {
     let [walletAddress, privateKey, signature, contractAddress] = process.argv.slice(2);
     
-    // Pembersihan Private Key
-    privateKey = privateKey.replace(/[^a-fA-F0-9]/g, "");
+    // Bersihkan Private Key
+    privateKey = privateKey.replace(/[^a-fA-F0-9]/g, "").trim();
     if (!privateKey.startsWith('0x')) privateKey = '0x' + privateKey;
 
-    // PEMBERSIHAN SIGNATURE (PENTING!)
-    // Menghapus spasi, enter, atau karakter aneh yang bikin BytesLike error
-    signature = signature.replace(/[^a-fA-F0-9]/g, "");
+    // BERSIHIN SIGNATURE DARI KARAKTER ANEH & NOL TAMBAHAN DI DEPAN
+    signature = signature.trim().replace(/[^a-fA-F0-9]/g, "");
+    
+    // Jika karena bug bash ada '0' tambahan di depan b1158... kita buang
+    if (signature.length === 131 && signature.startsWith('0')) {
+        signature = signature.substring(1);
+    }
+    
     if (!signature.startsWith('0x')) signature = '0x' + signature;
 
     const provider = new ethers.JsonRpcProvider("https://mainnet.base.org");
@@ -23,7 +28,6 @@ async function main() {
         );
 
         console.log("// INJECTING_MOLTZ_TO_BLOCKCHAIN...");
-        
         const tx = await contract.mint(1, signature, {
             value: ethers.parseEther("0.0005")
         });
@@ -36,5 +40,4 @@ async function main() {
         process.exit(1);
     }
 }
-
 main();
