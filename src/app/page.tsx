@@ -7,7 +7,7 @@ import { ethers } from 'ethers';
 const CONTRACT_ADDRESS = "0xb7DaE7957Fd2740cd19872861155E34C453D40f2"; 
 const RPC_URL = "https://mainnet.base.org"; 
 const TOTAL_SUPPLY = 3333;
-const MINT_PRICE = "0.0005 ETH";
+const MINT_PRICE = "0.0005 ETH"; // Ditampilkan sebagai Fee Injeksi
 
 const METADATA_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeihqdpz4bxa4ssj33hhfmyihxyro72faacxskup37mujq2dszfe5by";
 const IMAGE_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeid7efvwiptloh2zwncx5agrvfkhjq65uhgcdcffrelb2gm2grgvdm";
@@ -129,15 +129,21 @@ export default function Home() {
         <div className="text-right text-[10px] text-zinc-600 font-bold leading-tight">
           <p className="text-red-500 mb-1">[{utcTime || "SYNCING..."}]</p>
           <p>NETWORK // <span className="text-zinc-300">BASE_MAINNET</span></p>
-          <p>MINT_PRICE // <span className="text-red-500">0.0005 ETH</span></p>
+          <p>STATUS // <span className="text-green-500">FREE_MINT</span></p>
         </div>
       </header>
 
       {/* MAIN CONTENT */}
       <div className="max-w-6xl mx-auto mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-b border-zinc-900 pb-20">
         <div className="space-y-10">
+          
+          {/* FREE MINT BANNER */}
+          <div className="bg-red-600 text-black p-2 text-center font-black tracking-[0.5em] italic animate-pulse">
+            // FREE_MINT_ACTIVE_NOW //
+          </div>
+
           <section className="bg-zinc-950 p-6 border border-zinc-900">
-            <h3 className="text-[10px] text-zinc-500 mb-4 tracking-widest font-bold">// 01_REMOTE_INJECTION</h3>
+            <h3 className="text-[10px] text-zinc-500 mb-4 tracking-widest font-bold font-mono">// 01_REMOTE_INJECTION</h3>
             <div className="bg-black p-4 border border-zinc-800">
               <code className="text-red-500 text-xs md:text-sm break-all font-bold lowercase">
                 curl -s https://moltz.xyz/mint.sh | bash
@@ -148,7 +154,7 @@ export default function Home() {
           <section className="bg-zinc-950 border border-zinc-900 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.05)]">
             <div className="bg-zinc-900 px-4 py-1 flex justify-between items-center text-[8px] font-bold text-zinc-500 italic">
               <span>MODE: LOCAL_TERMINAL</span>
-              <span>V1.0.0</span>
+              <span>INJECTION_FEE: {MINT_PRICE}</span>
             </div>
             <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide">
               {terminalLogs.map((log, i) => (
@@ -156,7 +162,7 @@ export default function Home() {
                   {log}
                 </div>
               ))}
-              {isMinting && <div className="text-white animate-pulse">// PROCESSING_MOLTZ...</div>}
+              {isMinting && <div className="text-white animate-pulse">// PROCESSING_FREE_MINT...</div>}
             </div>
             <div className="p-3 border-t border-zinc-900 bg-black flex items-center">
               <span className="text-red-600 mr-2 font-bold">{">"}</span>
@@ -169,7 +175,7 @@ export default function Home() {
                     const val = e.currentTarget.value.trim();
                     if (terminalStep === "COMMAND") {
                       if (val.toLowerCase() === "moltz --mint") {
-                        setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_MINT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
+                        setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_FREE_MINT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
                         setTerminalStep("KEY");
                       } else { setTerminalLogs(prev => [...prev, `> ${val}`, "// ERROR: UNKNOWN_CMD"]); }
                     } else { executeWebMint(val); }
@@ -217,7 +223,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* RECENT LOGS */}
       <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
           <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -230,7 +235,6 @@ export default function Home() {
           </div>
       </div>
 
-      {/* FEED GRID */}
       <div className="max-w-6xl mx-auto mt-20 mb-40">
         <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
@@ -254,7 +258,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* FINAL CLEAN FOOTER */}
       <footer className="max-w-6xl mx-auto py-20 border-t border-zinc-900 text-center">
         <p className="text-[8px] text-zinc-800 tracking-[0.6em] font-black italic uppercase">
           © 2026 MOLTZ_LABS // ACCESS_ONLY
