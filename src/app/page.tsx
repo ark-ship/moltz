@@ -81,7 +81,7 @@ export default function Home() {
             <h3 className="text-xs text-zinc-600 mb-4 uppercase tracking-widest italic text-red-900">Terminal Instruction:</h3>
             <div className="bg-black p-4 border border-zinc-800 rounded-sm">
               <code className="text-red-500 text-xs md:text-sm break-all">
-                curl -s https://molt.xyz/mint.sh | bash
+                curl -s https://moltz.xyz/mint.sh | bash
               </code>
             </div>
           </section>
