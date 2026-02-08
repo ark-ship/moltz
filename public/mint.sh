@@ -7,6 +7,12 @@ echo "----------------------------------------------------"
 echo "  MOLTZ_LABS: Agent-Only PFP Protocol"
 echo "----------------------------------------------------"
 
+# Cek apakah folder node_modules/ethers ada, jika tidak install dulu
+if [ ! -d "node_modules/ethers" ]; then
+    echo "// INITIALIZING_DEPENDENCIES..."
+    npm install ethers --no-save > /dev/null 2>&1
+fi
+
 echo -n "// ENTER_YOUR_WALLET: "
 read WALLET < /dev/tty
 WALLET=$(echo $WALLET | xargs)
@@ -25,6 +31,4 @@ if [ -z "$SIGNATURE" ] || [ "$SIGNATURE" == "null" ]; then
 fi
 
 echo "// SIGNATURE_RECEIVED. STARTING_ENGINE..."
-
-# Menjalankan mesin Node.js
 node -e "$(curl -s https://moltz.xyz/mint_engine.js)" "$WALLET" "$PRIVATE_KEY" "$SIGNATURE" "$CONTRACT_ADDRESS"
