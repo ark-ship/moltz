@@ -7,7 +7,6 @@ import { getName } from '@coinbase/onchainkit/identity';
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0xb7DaE7957Fd2740cd19872861155E34C453D40f2"; 
 const RPC_URL = "https://mainnet.base.org"; 
-const BASE_CHAIN_ID = 8453; // Base Mainnet
 const TOTAL_SUPPLY = 3333;
 const MINT_PRICE = "0.0005 ETH"; 
 
@@ -27,14 +26,15 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [utcTime, setUtcTime] = useState("");
 
-  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.0.9 READY", "// TYPE 'moltz --mint' TO START"]);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.1.9 READY", "// TYPE 'moltz --mint' TO START"]);
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
 
-  // --- IDENTITY RESOLVER ---
+  // --- IDENTITY RESOLVER (SIMPLIFIED) ---
   const resolveIdentity = async (address: string) => {
+    if (!address || address === ethers.ZeroAddress) return "UNKNOWN";
     try {
-      // Using the simplified getName call to avoid TypeScript errors
+      // We only pass address. This is the only valid way in the new OnchainKit version.
       const basename = await getName({ address: address as `0x${string}` });
       return basename || `${address.slice(0, 6)}...${address.slice(-4)}`;
     } catch (e) {
@@ -44,11 +44,7 @@ export default function Home() {
 
   // --- SYNC DATA & PERSISTENT HISTORY ---
   useEffect(() => {
-    // We explicitly define the network in the provider to ensure history is found
-    const provider = new ethers.JsonRpcProvider(RPC_URL, {
-        name: 'base',
-        chainId: BASE_CHAIN_ID
-    });
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
     const fetchData = async () => {
@@ -56,27 +52,33 @@ export default function Home() {
         const count = await contract.totalSupply();
         setMintedCount(Number(count));
 
-        // Fetching events from the last 20,000 blocks to ensure we find history
-        const filter = contract.filters.Transfer("0x0000000000000000000000000000000000000000");
-        const events = await contract.queryFilter(filter, -20000); 
-        
+        // Scanning last 8000 blocks to stay safe under the 10,000 limit
+        const filter = contract.filters.Transfer(ethers.ZeroAddress);
+        const events = await contract.queryFilter(filter, -8000); 
         const latestEvents = events.reverse().slice(0, 8);
         
-        const resolvedEvents = await Promise.all(latestEvents.map(async (event: any) => {
-          const to = event.args[1];
-          const tokenId = event.args[2].toString();
-          const displayName = await resolveIdentity(to);
-          return {
-            display: displayName,
-            id: tokenId,
-            status: "SECURED"
-          };
+        // Step 1: Show HEX addresses immediately
+        const initialList = latestEvents.map((event: any) => ({
+          display: `${event.args[1].slice(0, 6)}...${event.args[1].slice(-4)}`,
+          id: event.args[2].toString(),
+          status: "SECURED"
         }));
-        
-        setRecentMints(resolvedEvents);
-      } catch (e) { 
-        console.error("History sync error:", e); 
-      }
+        setRecentMints(initialList);
+
+        // Step 2: Update names one by one
+        latestEvents.forEach(async (event: any, index: number) => {
+          const name = await resolveIdentity(event.args[1]);
+          setRecentMints(prev => {
+            const newList = [...prev];
+            if (newList[index]) {
+              newList[index].display = name;
+              newList[index].status = "VERIFIED";
+            }
+            return newList;
+          });
+        });
+
+      } catch (e) { console.error("Sync Failed", e); }
     };
 
     fetchData();
@@ -86,7 +88,7 @@ export default function Home() {
     }, 1000);
 
     const handleTransfer = async (from: string, to: string, tokenId: any) => {
-      if (from === "0x0000000000000000000000000000000000000000") {
+      if (from === ethers.ZeroAddress) {
         setMintedCount(prev => prev + 1);
         const displayName = await resolveIdentity(to);
         setRecentMints((prev) => [{
@@ -114,14 +116,9 @@ export default function Home() {
       const cleanPK = privateKey.replace(/[^a-fA-F0-9]/g, "").trim();
       const wallet = new ethers.Wallet(cleanPK.startsWith('0x') ? cleanPK : '0x' + cleanPK, provider);
       
-      setTerminalLogs(prev => [...prev, `// RESOLVING_BASENAME FOR: ${wallet.address.slice(0,10)}...`]);
+      setTerminalLogs(prev => [...prev, `// RESOLVING_BASENAME...`]);
       const identity = await resolveIdentity(wallet.address);
-      
-      if (identity.includes('.base.eth')) {
-        setTerminalLogs(prev => [...prev, `// IDENTITY_FOUND: ${identity} [SUCCESS]`]);
-      } else {
-        setTerminalLogs(prev => [...prev, `// NO_BASENAME_DETECTED: FALLBACK_TO_HEX`]);
-      }
+      setTerminalLogs(prev => [...prev, `// IDENTITY: ${identity}`]);
 
       const response = await fetch('/api/sign', {
         method: 'POST',
@@ -290,7 +287,6 @@ export default function Home() {
           </div>
       </div>
 
-      {/* GALLERY FEED */}
       <div className="max-w-6xl mx-auto mt-20 mb-40">
         <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
