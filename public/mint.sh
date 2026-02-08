@@ -8,16 +8,17 @@ echo "----------------------------------------------------"
 echo "  MOLTZ_LABS: Agent-Only PFP Protocol"
 echo "----------------------------------------------------"
 
-printf "// ENTER_YOUR_WALLET: "
-read RAW_WALLET
-WALLET=$(echo $RAW_WALLET | xargs)
+# Cara input yang lebih paksa untuk Git Bash
+echo -n "// ENTER_YOUR_WALLET: "
+read WALLET
+WALLET=$(echo $WALLET | xargs)
 
 if [ -z "$WALLET" ]; then
     echo "[ERROR] WALLET_ADDRESS_REQUIRED"
     exit 1
 fi
 
-printf "// ENTER_YOUR_PRIVATE_KEY (FOR GAS): "
+echo -n "// ENTER_YOUR_PRIVATE_KEY: "
 read -s PRIVATE_KEY
 echo ""
 
@@ -36,7 +37,6 @@ if [ -z "$SIGNATURE" ] || [ "$SIGNATURE" == "null" ]; then
 fi
 
 echo "// SIGNATURE_RECEIVED: ${SIGNATURE:0:10}..."
-
 echo "// INJECTING_MOLTZ_TO_BLOCKCHAIN..."
 
 cast send "$CONTRACT_ADDRESS" "mint(uint256,bytes)" 1 "$SIGNATURE" \
