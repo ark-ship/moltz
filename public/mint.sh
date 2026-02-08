@@ -37,17 +37,17 @@ fi
 
 echo "// SIGNATURE_RECEIVED. STARTING_ENGINE..."
 
-# Eksekusi Node.js secara langsung (Inline)
+# Eksekusi Node.js secara langsung (Inline) dengan Logika UTC
 node <<NODE_EOF
 const { ethers } = require("ethers");
 async function run() {
     try {
-        // Bersihkan Signature (Hapus 0 pengganggu jika panjang 131)
+        // 1. Pembersihan Signature
         let sig = "$RAW_SIG".replace(/[^a-fA-F0-9]/g, "");
         if (sig.length === 131 && sig.startsWith('0')) { sig = sig.substring(1); }
         if (!sig.startsWith('0x')) { sig = '0x' + sig; }
 
-        // Bersihkan Private Key
+        // 2. Pembersihan Private Key
         let pk = "$PRIVATE_KEY".replace(/[^a-fA-F0-9]/g, "");
         if (!pk.startsWith('0x')) { pk = '0x' + pk; }
 
@@ -57,9 +57,14 @@ async function run() {
 
         console.log("// INJECTING_MOLTZ_TO_BLOCKCHAIN...");
         const tx = await contract.mint(1, sig, { value: ethers.parseEther("0.0005") });
+        
+        // Logika Waktu UTC
+        const now = new Date();
+        const timeStr = now.toISOString().substr(11, 8); // Format HH:mm:ss UTC
+
         console.log("// TRANSACTION_SENT: " + tx.hash);
         await tx.wait();
-        console.log("// INJECTION_COMPLETE: ACCESS GRANTED");
+        console.log("[" + timeStr + " UTC] AGENT_VERIFIED: ACCESS GRANTED");
     } catch (e) {
         console.log("// [ERROR] INJECTION_FAILED: " + e.message);
         process.exit(1);
