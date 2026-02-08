@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
+import { getName } from '@coinbase/onchainkit/identity';
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0xb7DaE7957Fd2740cd19872861155E34C453D40f2"; 
@@ -25,54 +26,97 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [utcTime, setUtcTime] = useState("");
 
-  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.0.4 READY", "// TYPE 'moltz --mint' TO START"]);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.0.7 READY", "// TYPE 'moltz --mint' TO START"]);
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
 
+  // --- IDENTITY RESOLVER (ORIGINAL .BASE.ETH) ---
+  const resolveIdentity = async (address: string) => {
+    try {
+      // Mengambil nama asli lengkap dari OnchainKit (misal: hugo.base.eth)
+      const name = await getName({ address: address as `0x${string}`, chainId: 8453 });
+      return name || `${address.slice(0, 6)}...${address.slice(-4)}`;
+    } catch (e) {
+      return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    }
+  };
+
+  // --- SYNC DATA & PERSISTENT HISTORY ---
   useEffect(() => {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+
     const fetchData = async () => {
       try {
+        // 1. Sync Total Supply
         const count = await contract.totalSupply();
         setMintedCount(Number(count));
-      } catch (e) { console.error("Sync error"); }
+
+        // 2. Fetch Blockchain History (Persistent Recent Mints)
+        const filter = contract.filters.Transfer("0x0000000000000000000000000000000000000000");
+        const events = await contract.queryFilter(filter, -10000); // Scan 10k blocks
+        const latestEvents = events.reverse().slice(0, 8);
+        
+        const resolvedEvents = await Promise.all(latestEvents.map(async (event: any) => {
+          const to = event.args[1];
+          const tokenId = event.args[2].toString();
+          const displayName = await resolveIdentity(to);
+          return {
+            display: displayName,
+            id: tokenId,
+            status: "SECURED"
+          };
+        }));
+        setRecentMints(resolvedEvents);
+      } catch (e) { console.error("Sync error", e); }
     };
+
     fetchData();
     const timer = setInterval(() => {
       const now = new Date();
       setUtcTime(`${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')} UTC`);
-      fetchData();
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
+    }, 1000);
 
-  useEffect(() => {
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-    const handleTransfer = (from: string, to: string, tokenId: any) => {
+    // Live listener untuk mint baru saat web terbuka
+    const handleTransfer = async (from: string, to: string, tokenId: any) => {
       if (from === "0x0000000000000000000000000000000000000000") {
         setMintedCount(prev => prev + 1);
-        const timestamp = new Date().toISOString().substr(11, 8);
+        const displayName = await resolveIdentity(to);
         setRecentMints((prev) => [{
-          wallet: `${to.slice(0, 6)}...${to.slice(-4)}`,
+          display: displayName,
           id: tokenId.toString(),
-          time: timestamp
-        }, ...prev].slice(0, 6));
+          status: "LIVE_INJECTION"
+        }, ...prev].slice(0, 8));
       }
     };
+
     contract.on("Transfer", handleTransfer);
-    return () => { contract.off("Transfer", handleTransfer); };
+    return () => {
+      clearInterval(timer);
+      contract.off("Transfer", handleTransfer);
+    };
   }, []);
 
   const executeWebMint = async (privateKey: string) => {
     if (!privateKey || isMinting) return;
     setIsMinting(true);
     setTerminalLogs(prev => [...prev, "// INITIALIZING_MOLTZ_INJECTION..."]);
+    
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const cleanPK = privateKey.replace(/[^a-fA-F0-9]/g, "").trim();
       const wallet = new ethers.Wallet(cleanPK.startsWith('0x') ? cleanPK : '0x' + cleanPK, provider);
+      
+      // LOGIKA FALLBACK UNTUK TERMINAL (Sesuai masukan Torie)
+      setTerminalLogs(prev => [...prev, `// RESOLVING_BASENAME...`]);
+      const identity = await resolveIdentity(wallet.address);
+      
+      if (identity.includes('.base.eth')) {
+        setTerminalLogs(prev => [...prev, `// IDENTITY_FOUND: ${identity}`]);
+      } else {
+        setTerminalLogs(prev => [...prev, `// NO_BASENAME: FALLBACK_TO_HEX [OK]`]);
+      }
+
       const response = await fetch('/api/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,12 +124,15 @@ export default function Home() {
       });
       const data = await response.json();
       if (!data.signature) throw new Error("AUTH_FAILED");
+
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ["function mint(uint256 amount, bytes signature) external payable"], wallet);
       setTerminalLogs(prev => [...prev, "// SENDING_TRANSACTION..."]);
+      
       const tx = await contract.mint(1, data.signature, { value: ethers.parseEther("0.0005") });
       setTerminalLogs(prev => [...prev, `// TX_SENT: ${tx.hash.slice(0,15)}...`]);
       await tx.wait();
       setTerminalLogs(prev => [...prev, "// INJECTION_SUCCESSFUL"]);
+      
     } catch (error: any) {
       setTerminalLogs(prev => [...prev, `// [ERROR]: ${error.message.slice(0, 40)}`]);
     }
@@ -124,13 +171,13 @@ export default function Home() {
       <header className="max-w-6xl mx-auto flex justify-between items-start border-b border-zinc-900 pb-8">
         <div>
           <h1 className="text-6xl font-black tracking-tighter text-red-600 italic leading-none">MOLTZ</h1>
-          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">specialized PFP collection designed exclusively for autonomous AI agents.</p>
+          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">Specialized PFP collection designed exclusively for autonomous AI agents.</p>
         </div>
         <div className="text-right text-[10px] text-zinc-600 font-bold leading-tight">
           <p className="text-red-500 mb-1">[{utcTime || "SYNCING..."}]</p>
           <p>NETWORK // <span className="text-zinc-300">BASE_MAINNET</span></p>
           <p>STATUS // <span className="text-green-500">FREE_MINT</span></p>
-          <p>INJECTION_FEE// <span className="text-red-500">0.0005 ETH</span></p>
+          <p>INJECTION_FEE // <span className="text-red-500">0.0005 ETH</span></p>
         </div>
       </header>
 
@@ -138,7 +185,6 @@ export default function Home() {
       <div className="max-w-6xl mx-auto mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-b border-zinc-900 pb-20">
         <div className="space-y-10">
           
-          {/* FREE MINT BANNER */}
           <div className="bg-red-600 text-black p-2 text-center font-black tracking-[0.5em] italic animate-pulse">
             // FREE_MINT_ACTIVE_NOW //
           </div>
@@ -152,14 +198,15 @@ export default function Home() {
             </div>
           </section>
 
+          {/* TERMINAL BOX */}
           <section className="bg-zinc-950 border border-zinc-900 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.05)]">
             <div className="bg-zinc-900 px-4 py-1 flex justify-between items-center text-[8px] font-bold text-zinc-500 italic">
               <span>MODE: LOCAL_TERMINAL</span>
               <span>INJECTION_FEE: {MINT_PRICE}</span>
             </div>
-            <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide">
+            <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide font-bold">
               {terminalLogs.map((log, i) => (
-                <div key={i} className={log.includes("[ERROR]") ? "text-red-500" : "text-green-500 font-bold"}>
+                <div key={i} className={log.includes("[ERROR]") ? "text-red-500" : "text-green-500"}>
                   {log}
                 </div>
               ))}
@@ -187,7 +234,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* LIVE MINTED COUNTER */}
+          {/* COUNTER */}
           <section className="bg-red-600/5 border border-red-900/30 p-8 flex flex-col items-center justify-center">
             <div className="flex items-center gap-2 mb-2">
               <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse shadow-[0_0_8px_#dc2626]"></span>
@@ -212,6 +259,7 @@ export default function Home() {
           </section>
         </div>
 
+        {/* HERO IMAGE */}
         <div className="relative aspect-square border border-zinc-900 bg-zinc-950 group overflow-hidden">
           <img 
             src={`${IMAGE_GATEWAY}/${heroIndex}.png`} 
@@ -224,20 +272,26 @@ export default function Home() {
         </div>
       </div>
 
-      {/* RECENT LOGS */}
+      {/* RECENT INJECTIONS WITH PERSISTENT BASENAMES */}
       <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
           <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recentMints.map((m, i) => (
-              <div key={i} className="text-[10px] text-zinc-500 border-l-2 border-red-900 pl-4 py-1 flex justify-between bg-zinc-950/20">
-                <span><span className="text-red-600 font-black">[{m.time}]</span> WALLET_{m.wallet} SECURED MOLTZ #{m.id}</span>
-                <span className="text-zinc-800 italic font-black px-2">SUCCESS</span>
-              </div>
-            ))}
+            {recentMints.length > 0 ? (
+              recentMints.map((m, i) => (
+                <div key={i} className="text-[10px] text-zinc-500 border-l-2 border-red-900 pl-4 py-1 flex justify-between bg-zinc-950/20">
+                  <span>
+                    <span className="text-red-600 font-black italic px-2">[{m.status}]</span> {m.display} SECURED MOLTZ #{m.id}
+                  </span>
+                  <span className="text-zinc-800 italic font-black px-2 uppercase">Verified</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-[10px] text-zinc-800 animate-pulse tracking-widest font-bold font-mono">// SCANNING_BLOCKCHAIN_HISTORY...</div>
+            )}
           </div>
       </div>
 
-      {/* FEED GRID */}
+      {/* GALLERY FEED */}
       <div className="max-w-6xl mx-auto mt-20 mb-40">
         <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
