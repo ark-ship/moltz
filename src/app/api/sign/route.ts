@@ -15,13 +15,24 @@ export async function POST(req: Request) {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const signer = new ethers.Wallet(privateKey, provider);
 
-    // Membuat signature agar kontrak percaya ini dari server resmi
-    const messageHash = ethers.solidityPackedKeccak256(["address"], [wallet]);
+    // --- PENYESUAIAN KONTRAK (PENTING!) ---
+    // Kontrak kamu pakai: keccak256(abi.encodePacked(_user, _amount))
+    // Kita anggap _amount adalah 1 (sesuai jumlah mint per transaksi)
+    const amount = 1; 
+
+    // Menciptakan hash yang identik dengan abi.encodePacked di Solidity
+    const messageHash = ethers.solidityPackedKeccak256(
+      ["address", "uint256"], 
+      [wallet, amount]
+    );
+
+    // Menandatangani hash tersebut
     const signature = await signer.signMessage(ethers.getBytes(messageHash));
 
     return NextResponse.json({ signature });
 
   } catch (error) {
+    console.error("Signature Error:", error);
     return NextResponse.json({ error: 'AUTHORIZATION_FAILED' }, { status: 403 });
   }
 }
