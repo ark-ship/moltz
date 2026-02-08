@@ -3,13 +3,14 @@ const { ethers } = require("ethers");
 async function main() {
     let [walletAddress, privateKey, signature, contractAddress] = process.argv.slice(2);
     
-    // PEMBERSIHAN TOTAL: Hanya ambil karakter hex yang valid
-    // Ini akan membuang spasi, karakter 'enter' tersembunyi, atau simbol aneh
+    // Pembersihan Private Key
     privateKey = privateKey.replace(/[^a-fA-F0-9]/g, "");
-    
-    if (!privateKey.startsWith('0x')) {
-        privateKey = '0x' + privateKey;
-    }
+    if (!privateKey.startsWith('0x')) privateKey = '0x' + privateKey;
+
+    // PEMBERSIHAN SIGNATURE (PENTING!)
+    // Menghapus spasi, enter, atau karakter aneh yang bikin BytesLike error
+    signature = signature.replace(/[^a-fA-F0-9]/g, "");
+    if (!signature.startsWith('0x')) signature = '0x' + signature;
 
     const provider = new ethers.JsonRpcProvider("https://mainnet.base.org");
     
@@ -31,7 +32,6 @@ async function main() {
         await tx.wait();
         console.log("// INJECTION_COMPLETE: ACCESS GRANTED");
     } catch (error) {
-        // Jika masih error, kita keluarkan pesan yang lebih detail
         console.error("// [ERROR] INJECTION_FAILED:", error.message);
         process.exit(1);
     }
