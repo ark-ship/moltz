@@ -2,33 +2,31 @@
 
 import { useState, useEffect } from "react";
 
-// Definisikan tipe sederhana untuk metadata Moltz
-interface MoltzMetadata {
+// 1. Definisikan tipe data untuk NFT Moltz agar TypeScript tidak error
+interface MoltzNFT {
   name: string;
   image: string;
   description?: string;
-  attributes?: any[];
 }
 
 export default function MoltzHome() {
-  const [specimens, setSpecimens] = useState<MoltzMetadata[]>([]);
+  const [specimens, setSpecimens] = useState<MoltzNFT[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  const TOTAL_SUPPLY = 3333; // Sesuai kontrak Moltz kamu
+  const TOTAL_SUPPLY = 3333; // Sesuai MAX_SUPPLY di kontrak kamu
 
   const loadMetadata = async (limit: number) => {
     setIsLoading(true);
     
-    // PERBAIKAN: Menambahkan tipe data agar Vercel tidak error
-    const loadedData: MoltzMetadata[] = [];
+    // 2. PERBAIKAN: Memberikan tipe data explicit (MoltzNFT[]) pada array kosong
+    const loadedData: MoltzNFT[] = [];
 
-    // Logika untuk meload data (Sesuaikan dengan path IPFS atau folder public kamu)
     const start = specimens.length + 1;
-    const end = Math.min(start + limit - 1, TOTAL_SUPPLY);
+    const end = Math.min(specimens.length + limit, TOTAL_SUPPLY);
 
     try {
       for (let i = start; i <= end; i++) {
-        // Jika kamu menggunakan file lokal sementara di public/metadata
+        // Mengambil metadata dari folder public/metadata yang kamu upload
         const response = await fetch(`/metadata/${i}.json`);
         if (response.ok) {
           const json = await response.json();
@@ -37,49 +35,52 @@ export default function MoltzHome() {
       }
       setSpecimens((prev) => [...prev, ...loadedData]);
     } catch (error) {
-      console.error("Error loading Moltz metadata:", error);
+      console.error("Gagal memuat metadata Moltz:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadMetadata(20); // Load 20 item pertama saat pertama kali buka
+    loadMetadata(12); // Load 12 item pertama saat awal
   }, []);
 
   return (
-    <main className="min-h-screen p-8 bg-black text-white">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold mb-4 text-center">MOLTZ COLLECTION</h1>
-        <p className="text-center mb-8">Contract: 0xb7DaE7957Fd2740cd19872861155E34C453D40f2</p>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <main className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-7xl mx-auto">
+        <header className="text-center mb-12">
+          <h1 className="text-6xl font-black italic mb-2">MOLTZ</h1>
+          <p className="text-zinc-500 tracking-widest uppercase">Base Mainnet: 0xb7DaE7957Fd2740cd19872861155E34C453D40f2</p>
+        </header>
+
+        {/* Grid Display */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {specimens.map((nft, index) => (
-            <div key={index} className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+            <div key={index} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-600 transition">
               <img 
                 src={nft.image.replace("ipfs://", "https://ipfs.io/ipfs/")} 
-                alt={nft.name} 
-                className="w-full h-auto aspect-square object-cover"
+                alt={nft.name}
+                className="w-full aspect-square object-cover"
               />
-              <div className="p-3">
-                <p className="font-semibold text-sm">{nft.name}</p>
+              <div className="p-4">
+                <h3 className="font-bold text-lg">{nft.name}</h3>
               </div>
             </div>
           ))}
         </div>
 
-        {isLoading && <p className="text-center mt-8">Loading more Moltz...</p>}
-        
-        {!isLoading && specimens.length < TOTAL_SUPPLY && (
-          <div className="flex justify-center mt-12">
+        {/* Load More Button */}
+        <div className="mt-16 flex justify-center">
+          {specimens.length < TOTAL_SUPPLY && (
             <button 
-              onClick={() => loadMetadata(20)}
-              className="bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-zinc-200 transition"
+              onClick={() => loadMetadata(12)}
+              disabled={isLoading}
+              className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-zinc-200 disabled:opacity-50 transition"
             >
-              Load More
+              {isLoading ? "LOADING..." : "LOAD MORE SPECIMENS"}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </main>
   );
