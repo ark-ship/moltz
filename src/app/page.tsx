@@ -12,63 +12,67 @@ const MINT_PRICE = "0.0005 ETH";
 const METADATA_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeihqdpz4bxa4ssj33hhfmyihxyro72faacxskup37mujq2dszfe5by";
 const IMAGE_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeid7efvwiptloh2zwncx5agrvfkhjq65uhgcdcffrelb2gm2grgvdm";
 
-const ABI = ["event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"];
+const ABI = [
+  "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
+  "function totalSupply() view returns (uint256)"
+];
 
 export default function Home() {
   const [items, setItems] = useState<any[]>([]); 
   const [recentMints, setRecentMints] = useState<any[]>([]);
+  const [mintedCount, setMintedCount] = useState<number>(0);
   const [heroIndex, setHeroIndex] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [utcTime, setUtcTime] = useState("");
 
-  // --- STATE TERMINAL WEB ---
   const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.0.4 READY", "// TYPE 'moltz --mint' TO START"]);
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
 
-  // 1. UTC CLOCK LOGIC
   useEffect(() => {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+    const fetchData = async () => {
+      try {
+        const count = await contract.totalSupply();
+        setMintedCount(Number(count));
+      } catch (e) { console.error("Sync error"); }
+    };
+    fetchData();
     const timer = setInterval(() => {
       const now = new Date();
-      const h = String(now.getUTCHours()).padStart(2, '0');
-      const m = String(now.getUTCMinutes()).padStart(2, '0');
-      const s = String(now.getUTCSeconds()).padStart(2, '0');
-      setUtcTime(`${h}:${m}:${s} UTC`);
-    }, 1000);
+      setUtcTime(`${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')} UTC`);
+      fetchData();
+    }, 5000);
     return () => clearInterval(timer);
   }, []);
 
-  // 2. LIVE BLOCKCHAIN LOGS
   useEffect(() => {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
     const handleTransfer = (from: string, to: string, tokenId: any) => {
       if (from === "0x0000000000000000000000000000000000000000") {
-        const now = new Date();
-        const timestamp = now.toISOString().substr(11, 8);
-        const newMint = {
+        setMintedCount(prev => prev + 1);
+        const timestamp = new Date().toISOString().substr(11, 8);
+        setRecentMints((prev) => [{
           wallet: `${to.slice(0, 6)}...${to.slice(-4)}`,
           id: tokenId.toString(),
           time: timestamp
-        };
-        setRecentMints((prev) => [newMint, ...prev].slice(0, 6));
+        }, ...prev].slice(0, 6));
       }
     };
     contract.on("Transfer", handleTransfer);
     return () => { contract.off("Transfer", handleTransfer); };
   }, []);
 
-  // 3. WEB TERMINAL EXECUTION logic
   const executeWebMint = async (privateKey: string) => {
     if (!privateKey || isMinting) return;
     setIsMinting(true);
-    setTerminalLogs(prev => [...prev, "// INITIALIZING_INJECTION..."]);
-
+    setTerminalLogs(prev => [...prev, "// INITIALIZING_MOLTZ_INJECTION..."]);
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const cleanPK = privateKey.replace(/[^a-fA-F0-9]/g, "").trim();
       const wallet = new ethers.Wallet(cleanPK.startsWith('0x') ? cleanPK : '0x' + cleanPK, provider);
-      
       const response = await fetch('/api/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,15 +80,12 @@ export default function Home() {
       });
       const data = await response.json();
       if (!data.signature) throw new Error("AUTH_FAILED");
-
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ["function mint(uint256 amount, bytes signature) external payable"], wallet);
       setTerminalLogs(prev => [...prev, "// SENDING_TRANSACTION..."]);
-      
       const tx = await contract.mint(1, data.signature, { value: ethers.parseEther("0.0005") });
-      setTerminalLogs(prev => [...prev, `// TX_HASH: ${tx.hash.slice(0,15)}...`]);
-      
+      setTerminalLogs(prev => [...prev, `// TX_SENT: ${tx.hash.slice(0,15)}...`]);
       await tx.wait();
-      setTerminalLogs(prev => [...prev, "// INJECTION_COMPLETE: ACCESS GRANTED"]);
+      setTerminalLogs(prev => [...prev, "// INJECTION_SUCCESSFUL"]);
     } catch (error: any) {
       setTerminalLogs(prev => [...prev, `// [ERROR]: ${error.message.slice(0, 40)}`]);
     }
@@ -92,7 +93,6 @@ export default function Home() {
     setTerminalStep("COMMAND");
   };
 
-  // 4. METADATA FEED
   const loadMetadata = useCallback(async (limit: number) => {
     setIsLoading(true);
     const loadedData: any[] = []; 
@@ -105,7 +105,7 @@ export default function Home() {
           const data = await response.json();
           loadedData.push({ id: i, ...data });
         }
-      } catch (e) { console.error(`Failed to sync MOLTZ #${i}`); }
+      } catch (e) { }
     }
     setItems((prev) => [...prev, ...loadedData]);
     setIsLoading(false);
@@ -118,53 +118,37 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-black text-white font-mono p-6 md:p-12 selection:bg-red-600 selection:text-white uppercase">
+    <main className="min-h-screen bg-black text-white font-mono p-6 md:p-12 uppercase selection:bg-red-600">
       
       {/* HEADER */}
       <header className="max-w-6xl mx-auto flex justify-between items-start border-b border-zinc-900 pb-8">
         <div>
           <h1 className="text-6xl font-black tracking-tighter text-red-600 italic leading-none">MOLTZ</h1>
-          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">Agent Only PFP Protocol // Base</p>
+          <p className="mt-2 text-zinc-500 text-[10px] tracking-[0.3em]">MOLTZ Protocol // Base</p>
         </div>
-        <div className="text-right text-[10px] text-zinc-600 leading-tight font-bold">
+        <div className="text-right text-[10px] text-zinc-600 font-bold leading-tight">
           <p className="text-red-500 mb-1">[{utcTime || "SYNCING..."}]</p>
           <p>NETWORK // <span className="text-zinc-300">BASE_MAINNET</span></p>
-          <p>SUPPLY // <span className="text-zinc-300">{TOTAL_SUPPLY}</span></p>
-          <p>PRICE // <span className="text-red-500">{MINT_PRICE}</span></p>
+          <p>MINT_PRICE // <span className="text-red-500">0.0005 ETH</span></p>
         </div>
       </header>
 
-      {/* HERO & DUAL TERMINAL SECTION */}
+      {/* MAIN CONTENT */}
       <div className="max-w-6xl mx-auto mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-b border-zinc-900 pb-20">
         <div className="space-y-10">
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-               <span className="w-2 h-2 bg-red-600 rounded-full animate-ping"></span>
-               <h2 className="text-sm font-black text-red-500 tracking-widest italic">// ACCESS CONTROL</h2>
-            </div>
-            <p className="text-zinc-500 leading-relaxed text-sm md:text-base border-l-2 border-red-900 pl-4">
-              Two methods of injection available. Choose your protocol.
-            </p>
-          </section>
-
-          {/* OPTION 1: REMOTE TERMINAL (CURL) */}
-          <section className="bg-zinc-950 p-6 border border-zinc-900 relative">
-            <div className="absolute top-0 right-0 p-2 text-[8px] text-zinc-800 font-bold">MODE: REMOTE</div>
-            <h3 className="text-[10px] text-zinc-500 mb-4 tracking-widest font-bold underline decoration-red-900 underline-offset-4">
-              // 01_TERMINAL INJECTION COMMAND:
-            </h3>
-            <div className="bg-black p-4 border border-zinc-800 rounded-sm">
+          <section className="bg-zinc-950 p-6 border border-zinc-900">
+            <h3 className="text-[10px] text-zinc-500 mb-4 tracking-widest font-bold">// 01_REMOTE_INJECTION</h3>
+            <div className="bg-black p-4 border border-zinc-800">
               <code className="text-red-500 text-xs md:text-sm break-all font-bold lowercase">
                 curl -s https://moltz.xyz/mint.sh | bash
               </code>
             </div>
           </section>
 
-          {/* OPTION 2: WEBSITE TERMINAL (LOCAL) */}
           <section className="bg-zinc-950 border border-zinc-900 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.05)]">
-            <div className="bg-zinc-900 px-4 py-1 flex justify-between items-center text-[8px] font-bold text-zinc-500">
-              <span>MODE: WEBSITE INJECTION</span>
-              <span>V1.0.4</span>
+            <div className="bg-zinc-900 px-4 py-1 flex justify-between items-center text-[8px] font-bold text-zinc-500 italic">
+              <span>MODE: LOCAL_TERMINAL</span>
+              <span>V1.0.0</span>
             </div>
             <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide">
               {terminalLogs.map((log, i) => (
@@ -172,14 +156,14 @@ export default function Home() {
                   {log}
                 </div>
               ))}
-              {isMinting && <div className="text-white animate-pulse">// INITIALIZING_DATABASE_LINK...</div>}
+              {isMinting && <div className="text-white animate-pulse">// PROCESSING_MOLTZ...</div>}
             </div>
             <div className="p-3 border-t border-zinc-900 bg-black flex items-center">
-              <span className="text-red-600 mr-2 font-bold text-xs">{">"}</span>
+              <span className="text-red-600 mr-2 font-bold">{">"}</span>
               <input 
                 type={terminalStep === "KEY" ? "password" : "text"}
                 placeholder={terminalStep === "COMMAND" ? "TYPE 'moltz --mint' TO START" : "ENTER PRIVATE KEY"}
-                className="bg-transparent border-none outline-none text-red-500 text-xs w-full placeholder:text-zinc-800 font-bold"
+                className="bg-transparent border-none outline-none text-red-500 text-xs w-full placeholder:text-zinc-900 font-bold"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const val = e.currentTarget.value.trim();
@@ -187,12 +171,8 @@ export default function Home() {
                       if (val.toLowerCase() === "moltz --mint") {
                         setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_MINT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
                         setTerminalStep("KEY");
-                      } else {
-                        setTerminalLogs(prev => [...prev, `> ${val}`, `// ERROR: UNKNOWN_PROTOCOL`]);
-                      }
-                    } else {
-                      executeWebMint(val);
-                    }
+                      } else { setTerminalLogs(prev => [...prev, `> ${val}`, "// ERROR: UNKNOWN_CMD"]); }
+                    } else { executeWebMint(val); }
                     e.currentTarget.value = "";
                   }
                 }}
@@ -200,77 +180,85 @@ export default function Home() {
             </div>
           </section>
 
-          {/* RECENT INJECTIONS LOG */}
-          <section className="pt-2">
-            <h3 className="text-[10px] text-zinc-500 tracking-[0.3em] font-bold mb-4">// RECENT INJECTIONS</h3>
-            <div className="space-y-2 min-h-[120px]">
-              {recentMints.length > 0 ? (
-                recentMints.map((mint, i) => (
-                  <div key={i} className="flex justify-between items-center border-b border-zinc-900/30 pb-2">
-                    <p className="text-[10px] text-zinc-400">
-                      <span className="text-red-600 font-bold">[{mint.time}]</span> AGENT_{mint.wallet} 
-                      <span className="text-zinc-700 mx-2">{" >> "}</span> MOLTZ #{mint.id.padStart(4, '0')}
-                    </p>
-                    <span className="text-[8px] text-zinc-600 font-black italic">SUCCESS</span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-[10px] text-zinc-800 italic animate-pulse font-bold tracking-tighter">LISTENING_FOR_ONCHAIN_EVENTS...</div>
-              )}
+          {/* LIVE MINTED COUNTER */}
+          <section className="bg-red-600/5 border border-red-900/30 p-8 flex flex-col items-center justify-center">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse shadow-[0_0_8px_#dc2626]"></span>
+              <h3 className="text-[10px] font-black tracking-[0.4em] text-red-500 italic uppercase underline decoration-red-900/50 underline-offset-4">
+                // MOLTZ_RECRUITED_LIVE
+              </h3>
+            </div>
+            <div className="flex items-baseline gap-3">
+              <span className="text-6xl md:text-7xl font-black text-red-600 tracking-tighter tabular-nums drop-shadow-[0_0_15px_rgba(220,38,38,0.3)]">
+                {mintedCount.toString().padStart(4, '0')}
+              </span>
+              <span className="text-2xl font-bold text-zinc-800 tracking-tighter">
+                / {TOTAL_SUPPLY}
+              </span>
+            </div>
+            <div className="w-full bg-zinc-900 h-[2px] mt-6 relative overflow-hidden">
+              <div 
+                className="absolute top-0 left-0 h-full bg-red-600 transition-all duration-1000 ease-out shadow-[0_0_10px_#dc2626]"
+                style={{ width: `${(mintedCount / TOTAL_SUPPLY) * 100}%` }}
+              ></div>
             </div>
           </section>
         </div>
 
-        {/* HERO IMAGE */}
-        <div className="relative aspect-square bg-zinc-950 border border-zinc-900 group">
+        <div className="relative aspect-square border border-zinc-900 bg-zinc-950 group overflow-hidden">
           <img 
             src={`${IMAGE_GATEWAY}/${heroIndex}.png`} 
-            alt={`MOLTZ #${heroIndex}`} 
-            className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" 
+            alt="MOLTZ" 
+            className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all duration-700" 
           />
           <div className="absolute bottom-6 left-6 bg-black border border-red-600 px-4 py-2 shadow-[4px_4px_0px_#dc2626]">
-            <p className="text-xs text-red-600 font-black italic tracking-[0.2em]">MOLTZ #{heroIndex.toString().padStart(4, '0')}</p>
+            <p className="text-xs text-red-600 font-black italic tracking-widest">MOLTZ #{heroIndex.toString().padStart(4, '0')}</p>
           </div>
         </div>
       </div>
 
-      {/* FEED GRID */}
-      <div className="max-w-6xl mx-auto mt-24 mb-32">
-          <div className="flex justify-between items-end mb-12 border-b border-zinc-900 pb-4">
-            <h2 className="text-2xl font-black text-red-600 tracking-tighter italic underline decoration-red-900">// LIVE METADATA</h2>
-            <p className="text-zinc-600 text-[10px] font-bold tracking-widest">INDEXED: {items.length} / {TOTAL_SUPPLY}</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {items.map((item) => (
-              <div key={item.id} className="bg-zinc-950 border border-zinc-900 hover:border-red-600 transition-all duration-300 shadow-[4px_4px_0px_#18181b]">
-                <div className="aspect-square bg-black overflow-hidden relative">
-                   <img src={`${IMAGE_GATEWAY}/${item.id}.png`} alt={item.name} className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" loading="lazy" />
-                </div>
-                <div className="p-4 border-t border-zinc-900 text-[10px]">
-                  <p className="text-red-600 font-black mb-3 truncate tracking-tighter">MOLTZ #{item.id.toString().padStart(4, '0')}</p>
-                  <div className="space-y-1 opacity-50">
-                    {item.attributes?.slice(0, 2).map((attr: any, idx: number) => (
-                      <div key={idx} className="flex justify-between text-[7px] uppercase tracking-tighter">
-                        <span>{attr.trait_type}</span>
-                        <span className="font-bold">{attr.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+      {/* RECENT LOGS */}
+      <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
+          <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recentMints.map((m, i) => (
+              <div key={i} className="text-[10px] text-zinc-500 border-l-2 border-red-900 pl-4 py-1 flex justify-between bg-zinc-950/20">
+                <span><span className="text-red-600 font-black">[{m.time}]</span> WALLET_{m.wallet} SECURED MOLTZ #{m.id}</span>
+                <span className="text-zinc-800 italic font-black px-2">SUCCESS</span>
               </div>
             ))}
           </div>
-          {items.length < TOTAL_SUPPLY && (
-            <div className="mt-20 text-center">
-               <button onClick={() => loadMetadata(20)} disabled={isLoading} className="px-16 py-4 border-2 border-red-900 text-red-600 text-xs font-black hover:bg-red-600 hover:text-black transition-all shadow-[8px_8px_0px_#18181b] active:translate-y-1 active:shadow-none">
-                  {isLoading ? "UPLINKING..." : "SYNC_NEXT_BATCH"}
-               </button>
-            </div>
-          )}
       </div>
 
-      <footer className="max-w-6xl mx-auto text-center border-t border-zinc-900 pt-12 pb-20">
-        <p className="text-[9px] text-zinc-700 tracking-[0.5em]">© 2026 MOLTZ LABS // ALL RIGHTS RESERVED</p>
+      {/* FEED GRID */}
+      <div className="max-w-6xl mx-auto mt-20 mb-40">
+        <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+          {items.map((item) => (
+            <div key={item.id} className="bg-zinc-950 border border-zinc-900 hover:border-red-600 transition-all duration-300">
+              <div className="aspect-square overflow-hidden bg-black relative">
+                <img src={`${IMAGE_GATEWAY}/${item.id}.png`} alt={item.name} className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" loading="lazy" />
+              </div>
+              <div className="p-4 text-[10px]">
+                <p className="text-red-600 font-black truncate tracking-tighter">MOLTZ #{item.id.toString().padStart(4, '0')}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {items.length < TOTAL_SUPPLY && (
+          <div className="text-center mt-20">
+            <button onClick={() => loadMetadata(20)} disabled={isLoading} className="px-16 py-4 border-2 border-red-900 text-red-600 font-black hover:bg-red-600 hover:text-black transition-all tracking-[0.4em]">
+              {isLoading ? "SYNCING..." : "LOAD_MORE_MOLTZ"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* FINAL CLEAN FOOTER */}
+      <footer className="max-w-6xl mx-auto py-20 border-t border-zinc-900 text-center">
+        <p className="text-[8px] text-zinc-800 tracking-[0.6em] font-black italic uppercase">
+          © 2026 MOLTZ_LABS // ACCESS_ONLY
+        </p>
       </footer>
     </main>
   );
