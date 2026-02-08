@@ -3,8 +3,10 @@ const { ethers } = require("ethers");
 async function main() {
     let [walletAddress, privateKey, signature, contractAddress] = process.argv.slice(2);
     
-    // Membersihkan spasi dan memastikan ada awalan 0x pada Private Key
-    privateKey = privateKey.trim();
+    // PEMBERSIHAN TOTAL: Hanya ambil karakter hex yang valid
+    // Ini akan membuang spasi, karakter 'enter' tersembunyi, atau simbol aneh
+    privateKey = privateKey.replace(/[^a-fA-F0-9]/g, "");
+    
     if (!privateKey.startsWith('0x')) {
         privateKey = '0x' + privateKey;
     }
@@ -29,7 +31,8 @@ async function main() {
         await tx.wait();
         console.log("// INJECTION_COMPLETE: ACCESS GRANTED");
     } catch (error) {
-        console.error("// [ERROR] INJECTION_FAILED:", error.shortMessage || error.message);
+        // Jika masih error, kita keluarkan pesan yang lebih detail
+        console.error("// [ERROR] INJECTION_FAILED:", error.message);
         process.exit(1);
     }
 }
