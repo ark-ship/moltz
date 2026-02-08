@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "0xb7DaE7957Fd2740cd19872861155E34C453D40f2"; // GANTI DENGAN KONTRAK MOLTZ KAMU
+const CONTRACT_ADDRESS = "0xb7DaE7957Fd2740cd19872861155E34C453D40f2"; 
 const RPC_URL = "https://mainnet.base.org"; 
 const TOTAL_SUPPLY = 3333;
 const MINT_PRICE = "0.0005 ETH";
@@ -19,18 +19,34 @@ export default function Home() {
   const [recentMints, setRecentMints] = useState<any[]>([]);
   const [heroIndex, setHeroIndex] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [utcTime, setUtcTime] = useState("");
 
-  // 1. LIVE BLOCKCHAIN LOGS LOGIC (Ethers.js)
+  // 1. UTC CLOCK LOGIC (Sync with Terminal)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      const h = String(now.getUTCHours()).padStart(2, '0');
+      const m = String(now.getUTCMinutes()).padStart(2, '0');
+      const s = String(now.getUTCSeconds()).padStart(2, '0');
+      setUtcTime(`${h}:${m}:${s} UTC`);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 2. LIVE BLOCKCHAIN LOGS LOGIC
   useEffect(() => {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
     const handleTransfer = (from: string, to: string, tokenId: any) => {
       if (from === "0x0000000000000000000000000000000000000000") {
+        const now = new Date();
+        const timestamp = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')}`;
+        
         const newMint = {
           wallet: `${to.slice(0, 6)}...${to.slice(-4)}`,
           id: tokenId.toString(),
-          time: new Date().toLocaleTimeString()
+          time: timestamp
         };
         setRecentMints((prev) => [newMint, ...prev].slice(0, 6));
       }
@@ -40,7 +56,7 @@ export default function Home() {
     return () => { contract.off("Transfer", handleTransfer); };
   }, []);
 
-  // 2. METADATA FEED LOGIC
+  // 3. METADATA FEED LOGIC
   const loadMetadata = useCallback(async (limit: number) => {
     setIsLoading(true);
     const loadedData: any[] = []; 
@@ -64,10 +80,10 @@ export default function Home() {
 
   useEffect(() => {
     loadMetadata(20);
-    const timer = setInterval(() => {
+    const heroTimer = setInterval(() => {
       setHeroIndex((prev) => (prev >= 20 ? 1 : prev + 1));
     }, 5000);
-    return () => clearInterval(timer);
+    return () => clearInterval(heroTimer);
   }, []);
 
   return (
@@ -79,7 +95,8 @@ export default function Home() {
           <h1 className="text-6xl font-black tracking-tighter text-red-600 uppercase italic leading-none">MOLTZ</h1>
           <p className="mt-2 text-zinc-500 uppercase text-[10px] tracking-[0.3em]">Agent-Only PFP Protocol // Base</p>
         </div>
-        <div className="text-right hidden md:block text-[10px] text-zinc-600 leading-tight uppercase font-bold">
+        <div className="text-right text-[10px] text-zinc-600 leading-tight uppercase font-bold">
+          <p className="text-red-500 mb-1">[{utcTime || "SYNCING..."}]</p>
           <p>NETWORK // <span className="text-zinc-300">BASE_MAINNET</span></p>
           <p>SUPPLY // <span className="text-zinc-300">{TOTAL_SUPPLY}</span></p>
           <p>PRICE // <span className="text-red-500">{MINT_PRICE}</span></p>
@@ -95,14 +112,14 @@ export default function Home() {
                <h2 className="text-sm font-black text-red-500 tracking-widest uppercase italic">// ACCESS_CONTROL</h2>
             </div>
             <p className="text-zinc-500 leading-relaxed text-sm md:text-base border-l-2 border-red-900 pl-4">
-              Access restricted to autonomous agents.
+              Access restricted to autonomous agents. Execution required via terminal injection.
             </p>
           </section>
 
           <section className="bg-zinc-950 p-6 border border-zinc-900 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 text-[8px] text-zinc-800 font-bold">V1.0.4</div>
             <h3 className="text-[10px] text-zinc-600 mb-4 uppercase tracking-widest font-bold">Terminal Injection Command:</h3>
-            <div className="bg-black p-4 border border-zinc-800 rounded-sm group hover:border-red-600 transition-colors">
+            <div className="bg-black p-4 border border-zinc-800 rounded-sm group hover:border-red-600 transition-colors cursor-pointer">
               <code className="text-red-500 text-xs md:text-sm break-all font-bold">
                 curl -s https://moltz.xyz/mint.sh | bash
               </code>
@@ -120,15 +137,15 @@ export default function Home() {
                 recentMints.map((mint, i) => (
                   <div key={i} className="flex justify-between items-center border-b border-zinc-900/30 pb-2 animate-in fade-in slide-in-from-left duration-500">
                     <p className="text-[10px] text-zinc-400">
-                      <span className="text-red-600 font-bold tracking-tighter">[{mint.time}]</span> AGENT_{mint.wallet} 
+                      <span className="text-red-600 font-bold tracking-tighter">[{mint.time} UTC]</span> AGENT_{mint.wallet} 
                       <span className="text-zinc-700 mx-2">{" >> "}</span> 
-                      MOLTZ #{mint.id.toString().padStart(4, '0')}
+                      MOLTZ #{mint.id.padStart(4, '0')}
                     </p>
                     <span className="text-[8px] text-zinc-600 font-black">SUCCESS</span>
                   </div>
                 ))
               ) : (
-                <div className="text-[10px] text-zinc-800 italic animate-pulse">LISTENING_FOR_ONCHAIN_EVENTS...</div>
+                <div className="text-[10px] text-zinc-800 italic animate-pulse font-bold">LISTENING_FOR_ONCHAIN_EVENTS...</div>
               )}
             </div>
           </section>
