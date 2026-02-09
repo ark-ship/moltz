@@ -7,11 +7,11 @@
   "frame": {
     "version": "1",
     "name": "MOLTZ AGENT",
-    "iconUrl": "https://moltz.xyz/moltz.ico",
+    "iconUrl": "https://moltz.xyz/icon.png",
     "homeUrl": "https://moltz.xyz",
     "imageUrl": "https://moltz.xyz/preview.png",
     "buttonTitle": "MINT ID",
-    "splashImageUrl": "https://moltz.xyz/preview.png",
+    "splashImageUrl": "https://moltz.xyz/icon.png",
     "splashBackgroundColor": "#000000",
     "webhookUrl": "https://moltz.xyz/api/frame/mint"
   }
