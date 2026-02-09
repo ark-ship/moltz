@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEwMjMsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg1QTllNzQ1QTk4ZDRGODc5MzI3OTIwODA1YjFkQjE4ZGUzQzM2MzU1In0",
+    "payload": "eyJkb21haW4iOiJtb2x0ei54eXoifQ",
+    "signature": "MHhkYjRi..."
+  },
+  "frame": {
+    "version": "1",
+    "name": "MOLTZ AGENT",
+    "iconUrl": "https://moltz.xyz/moltz.ico",
+    "homeUrl": "https://moltz.xyz",
+    "imageUrl": "https://moltz.xyz/preview.png",
+    "buttonTitle": "MINT ID",
+    "splashImageUrl": "https://moltz.xyz/preview.png",
+    "splashBackgroundColor": "#000000",
+    "webhookUrl": "https://moltz.xyz/api/frame/mint"
+  }
+}
