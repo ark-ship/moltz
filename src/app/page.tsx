@@ -15,7 +15,6 @@ const MINT_PRICE = "0.0005 ETH";
 const METADATA_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeihqdpz4bxa4ssj33hhfmyihxyro72faacxskup37mujq2dszfe5by";
 const IMAGE_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeid7efvwiptloh2zwncx5agrvfkhjq65uhgcdcffrelb2gm2grgvdm";
 
-// [UPDATE ABI] Menambahkan tokenOfOwnerByIndex untuk akses cepat
 const ABI = [
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
   "function totalSupply() view returns (uint256)",
@@ -24,50 +23,104 @@ const ABI = [
   "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)" 
 ];
 
+// --- HELPER: GENERATE DETERMINISTIC AGENT ID ---
+// Menghasilkan 4 digit angka acak yang KONSISTEN berdasarkan address wallet
+// Input: Wallet Address (string) -> Output: 4 Digit String (e.g., "4532")
+const generateAgentId = (address: string): string => {
+  if (!address) return "0000";
+  // Mengambil 4 byte terakhir dari address hash untuk dijadikan seed
+  const cleanAddr = address.toLowerCase().replace('0x', '');
+  const seed = parseInt(cleanAddr.slice(-4), 16);
+  // Modulo 10000 untuk dapat angka 0-9999
+  const id = seed % 10000;
+  return id.toString().padStart(4, '0');
+};
+
 // --- COMPONENT: AGENT DOSSIER ---
-const AgentDossier = ({ id, address, density }: { id: string; address: string; density: number }) => {
-  const tweetText = `Identity confirmed.%0A%0AI am MOLTZ %23${id}.%0A%0AThe network is forming on @Base.`;
+const AgentDossier = ({ id, address, density, balance }: { id: string; address: string; density: number; balance: number }) => {
+  // Generate ID Agen yang konsisten dari address (Misal: #4532)
+  const agentSerial = generateAgentId(address);
+  
+  const tweetText = `Accessing classified file.%0A%0AMOLTZ AGENT ID: %23${agentSerial}%0ACLEARANCE: VERIFIED%0A%0AJoin the network on @Base.`;
   const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=https://moltz.xyz`;
 
-  // Logic Class & Color
+  // 1. LOGIC RANK (Time Based - Masih pakai ID NFT asli untuk menentukan senioritas/kapan join)
   const numId = parseInt(id);
-  let agentClass = "GRID_RUNNER";
-  let classColor = "text-green-400";
-
+  let agentRank = "FIELD_AGENT"; 
+  
   if (!isNaN(numId)) {
     if (numId <= 100) {
-        agentClass = "GENESIS_PRIME"; // 1-100
-        classColor = "text-red-500 animate-pulse";
-    } else if (numId <= 1000) {
-        agentClass = "CORE_OPERATOR"; // 101-1000
-        classColor = "text-yellow-400";
+        agentRank = "FOUNDER_CIRCLE"; 
+    } else if (numId <= 500) {
+        agentRank = "VETERAN_AGENT"; 
     }
-  } else {
-      agentClass = "UNKNOWN_UNIT"; // Jika ID gagal load
   }
+
+  // 2. LOGIC CLASS (Holding Power - Quantity Based)
+  let agentClass = "MOLTZ_SHARD"; 
+  let classColor = "text-green-400"; 
+
+  if (balance >= 50) {
+      agentClass = "MOLTZ_SINGULARITY"; 
+      classColor = "text-red-600 font-black animate-pulse tracking-widest drop-shadow-[0_0_15px_rgba(220,38,38,0.9)] border border-red-900 px-1 bg-red-900/20";
+  } else if (balance >= 26) {
+      agentClass = "MOLTZ_MAINFRAME"; 
+      classColor = "text-purple-400 font-bold drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]";
+  } else if (balance >= 11) {
+      agentClass = "MOLTZ_NEXUS"; 
+      classColor = "text-cyan-400 font-bold";
+  } else if (balance >= 6) {
+      agentClass = "MOLTZ_CLUSTER"; 
+      classColor = "text-blue-400 font-bold";
+  }
+
+  const extraUnits = balance > 1 ? balance - 1 : 0;
 
   return (
     <div className="my-2 w-full max-w-md border border-green-500 bg-black/90 p-4 font-mono text-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)] uppercase animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="mb-4 border-b border-green-500 pb-2 text-[10px] tracking-widest opacity-80 flex justify-between">
-        <span>// SUBJECT_VERIFICATION //</span>
-        <span className="animate-pulse text-green-400">● ONLINE</span>
+        <span>// CLASSIFIED_DOSSIER //</span>
+        <span className="animate-pulse text-green-400">● ACTIVE</span>
       </div>
       
       <div className="space-y-2 text-xs mb-4">
+        {/* MOLTZ AGENT ID (DETERMINISTIC & RANDOM-LOOKING) */}
         <div className="flex justify-between items-center">
-          <span className="opacity-70">UNIT_ID</span>
-          <span className="font-black text-black bg-green-500 px-2">MOLTZ #{id}</span>
+          <span className="opacity-70">MOLTZ AGENT ID</span>
+          <div className="flex items-center gap-2">
+             <span className="font-black text-black bg-green-500 px-2">#{agentSerial}</span>
+             {extraUnits > 0 && (
+                 <span className="text-[9px] text-green-400 border border-green-900 px-1 opacity-80">
+                   [+{extraUnits} ASSETS]
+                 </span>
+             )}
+          </div>
         </div>
+
         <div className="flex justify-between items-center">
-          <span className="opacity-70">OWNER</span>
+          <span className="opacity-70">WALLET_ID</span>
           <span className="text-white">{address.slice(0, 6)}...{address.slice(-4)}</span>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="opacity-70">CLASS</span>
-          <span className={`${classColor} font-bold`}>{agentClass}</span>
+
+        {/* RANK */}
+        <div className="flex justify-between items-center mt-2 border-t border-green-900/50 pt-2">
+          <span className="opacity-70">SERVICE RANK</span>
+          <span className="text-zinc-400">{agentRank}</span>
         </div>
+
+        {/* CLASS */}
+        <div className="flex justify-between items-center">
+          <span className="opacity-70">AUTHORITY LEVEL</span>
+          <span className={`${classColor}`}>{agentClass}</span>
+        </div>
+        
+        <div className="flex justify-between items-center text-[10px] opacity-60">
+           <span>SECURED ASSETS</span>
+           <span>[{balance} UNITS]</span>
+        </div>
+
         <div className="flex justify-between items-center border-t border-green-900 pt-2 mt-2">
-          <span className="opacity-70">NETWORK_DENSITY</span>
+          <span className="opacity-70">GLOBAL_DENSITY</span>
           <span>{density} / {TOTAL_SUPPLY}</span>
         </div>
       </div>
@@ -78,7 +131,7 @@ const AgentDossier = ({ id, address, density }: { id: string; address: string; d
         rel="noopener noreferrer"
         className="block w-full border border-green-700 bg-green-900/20 py-2 text-center text-[10px] font-bold text-green-400 hover:bg-green-500 hover:text-black transition-all cursor-pointer no-underline tracking-[0.2em]"
       >
-        [ BROADCAST_SIGNAL_TO_X ]
+        [ UPLOAD_STATUS_TO_X ]
       </a>
     </div>
   );
@@ -93,15 +146,15 @@ export default function Home() {
   const [utcTime, setUtcTime] = useState("");
   
   const [terminalLogs, setTerminalLogs] = useState<(string | React.JSX.Element)[]>([
-    "// MOLTZ_OS V1.1 ONLINE", 
-    "// MONITORING_BASE_CHAIN...",
+    "// MOLTZ_OS V2.0 ONLINE", 
+    "// CONNECTING TO AGENT DATABASE...",
     "// TYPE 'moltz --mint' TO MINT",
     "// TYPE 'moltz --sync' TO LOGIN"
   ]);
   
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY" | "SYNC">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{address: string, id: string} | null>(null);
+  const [currentUser, setCurrentUser] = useState<{address: string, id: string, balance: number} | null>(null);
 
   // --- SYNC DATA ---
   useEffect(() => {
@@ -134,9 +187,9 @@ export default function Home() {
     return () => { clearInterval(timer); clearInterval(clockTimer); };
   }, []);
 
-  // --- SMART LOGIN LOGIC (ANTI-FAIL) ---
+  // --- SMART LOGIN LOGIC ---
   const checkWalletAccess = async (addressInput: string) => {
-    setTerminalLogs(prev => [...prev, `> VERIFYING: ${addressInput}...`]);
+    setTerminalLogs(prev => [...prev, `> AUTHENTICATING: ${addressInput}...`]);
     
     try {
       if (!ethers.isAddress(addressInput)) {
@@ -146,19 +199,16 @@ export default function Home() {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
       
-      // 1. Cek Balance (Cara paling valid & ringan)
-      const balance = await contract.balanceOf(addressInput);
+      const balanceBig = await contract.balanceOf(addressInput);
+      const balance = Number(balanceBig);
 
-      if (Number(balance) > 0) {
-        let foundTokenId = "???"; // Default jika RPC gagal fetch ID
+      if (balance > 0) {
+        let foundTokenId = "???";
 
-        // 2. Coba cara cepat (ERC721Enumerable)
         try {
-            const tokenId = await contract.tokenOfOwnerByIndex(addressInput, 0); // Ambil token pertama
+            const tokenId = await contract.tokenOfOwnerByIndex(addressInput, 0); 
             foundTokenId = tokenId.toString();
         } catch (e) {
-            // 3. Jika gagal, coba scan manual (Fallback)
-            // Kita cuma scan 5000 blok terakhir biar gak Timeout
             try {
                 const latestBlock = await provider.getBlockNumber();
                 const filter = contract.filters.Transfer(null, addressInput);
@@ -167,27 +217,24 @@ export default function Home() {
                     const latestEvent: any = events[events.length - 1];
                     foundTokenId = latestEvent.args[2].toString();
                 }
-            } catch (err) {
-                console.log("Scan failed, but access granted via balance");
-            }
+            } catch (err) { console.log("Scan failed"); }
         }
 
-        // LOGIN SUKSES (Meskipun ID masih ???)
-        setCurrentUser({ address: addressInput, id: foundTokenId });
+        setCurrentUser({ address: addressInput, id: foundTokenId, balance: balance });
            
         setTerminalLogs(prev => [
             ...prev, 
             "// ACCESS GRANTED.", 
-            "// SESSION RESTORED.", 
-            `// FOUND_ID: MOLTZ #${foundTokenId}`,
-            "// HINT: TYPE 'whoami' TO VIEW DOSSIER"
+            "// AGENT PROFILE LOADED.", 
+            `// ASSETS SECURED: ${balance}`,
+            "// HINT: TYPE 'whoami' TO VIEW FILE"
         ]);
 
       } else {
         throw new Error("NO_ASSETS_FOUND");
       }
     } catch (error) {
-      setTerminalLogs(prev => [...prev, `// ERROR: ACCESS DENIED / NOT FOUND`]);
+      setTerminalLogs(prev => [...prev, `// ERROR: ACCESS DENIED / NOT AN AGENT`]);
     }
     setTerminalStep("COMMAND");
   };
@@ -196,7 +243,7 @@ export default function Home() {
   const executeWebMint = async (privateKey: string) => {
     if (!privateKey || isMinting) return;
     setIsMinting(true);
-    setTerminalLogs(prev => [...prev, "// INITIALIZING_MOLTZ_INJECTION..."]);
+    setTerminalLogs(prev => [...prev, "// INITIALIZING_MOLTZ_RECRUITMENT..."]);
     
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -211,18 +258,21 @@ export default function Home() {
       const data = await response.json();
       if (!data.signature) throw new Error("AUTH_FAILED");
 
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ["function mint(uint256 amount, bytes signature) external payable"], wallet);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, ["function mint(uint256 amount, bytes signature) external payable", "function balanceOf(address owner) view returns (uint256)"], wallet);
       const tx = await contract.mint(1, data.signature, { value: ethers.parseEther("0.0005") });
       await tx.wait();
 
+      const balanceBig = await contract.balanceOf(wallet.address);
+      const balance = Number(balanceBig);
       const newId = (mintedCount + 1).toString();
-      setCurrentUser({ address: wallet.address, id: newId });
+      
+      setCurrentUser({ address: wallet.address, id: newId, balance: balance });
 
       setTerminalLogs(prev => [
         ...prev, 
-        "// INJECTION_SUCCESSFUL",
-        `// IDENTITY ACQUIRED: MOLTZ #${newId}`,
-        "// HINT: TYPE 'whoami' TO VIEW DOSSIER"
+        "// RECRUITMENT_SUCCESSFUL",
+        `// AGENT ASSIGNED: #${generateAgentId(wallet.address)}`,
+        "// HINT: TYPE 'whoami' TO VIEW FILE"
       ]);
 
     } catch (error: any) {
@@ -269,7 +319,7 @@ export default function Home() {
           <div className="text-right text-[10px] text-zinc-600 font-bold leading-tight uppercase">
             <p className="text-red-500 mb-1">[{utcTime || "SYNCING..."}]</p>
             <p>NETWORK // <span className="text-zinc-300">BASE_MAINNET</span></p>
-            <p>STATUS // <span className="text-green-500">FREE_MINT</span></p>
+            <p>STATUS // <span className="text-green-500">ONLINE</span></p>
             <p>FEE_INJECTION // <span className="text-red-500">{MINT_PRICE}</span></p>
           </div>
         </header>
@@ -294,7 +344,7 @@ export default function Home() {
                 {terminalLogs.map((log, i) => (
                    <div key={i}>{typeof log === 'string' ? log : log}</div>
                 ))}
-                {isMinting && <div className="text-white animate-pulse">// PROCESSING_INJECTION...</div>}
+                {isMinting && <div className="text-white animate-pulse">// PROCESSING_RECRUITMENT...</div>}
               </div>
 
               <div className="p-3 border-t border-zinc-900 bg-black flex items-center">
@@ -313,7 +363,7 @@ export default function Home() {
                       
                       if (terminalStep === "COMMAND") {
                         if (val.toLowerCase() === "moltz --mint") {
-                          setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_MINT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
+                          setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_RECRUITMENT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
                           setTerminalStep("KEY");
                         } 
                         else if (val.toLowerCase() === "moltz --sync") {
@@ -329,10 +379,11 @@ export default function Home() {
                                  id={currentUser.id} 
                                  address={currentUser.address} 
                                  density={mintedCount} 
+                                 balance={currentUser.balance} 
                                />
                              ]);
                            } else {
-                             setTerminalLogs(prev => [...prev, "// ERROR: IDENTITY_NOT_FOUND", "// TRY: 'moltz --sync'"]);
+                             setTerminalLogs(prev => [...prev, "// ERROR: AGENT_NOT_FOUND", "// TRY: 'moltz --sync'"]);
                            }
                         }
                         else {
@@ -370,7 +421,7 @@ export default function Home() {
 
         {/* RECENT INJECTIONS */}
         <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
-            <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
+            <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_RECRUITS</h3>
             <div className="grid grid-cols-1 gap-2"> 
               {recentMints.map((m, i) => (
                 <div key={i} className="text-[10px] text-zinc-500 border-l-2 border-red-900 pl-4 py-3 flex justify-between bg-zinc-950/20 items-center">
@@ -391,7 +442,7 @@ export default function Home() {
 
         {/* FEED GALLERY */}
         <div className="max-w-6xl mx-auto mt-20 mb-40">
-          <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_GALLERY</h2>
+          <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {recentMints.length > 0 && items.map((item) => (
               <div key={item.id} className="bg-zinc-950 border border-zinc-900 hover:border-red-600 transition-all duration-300">
