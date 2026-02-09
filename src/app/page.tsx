@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { OnchainKitProvider } from '@coinbase/onchainkit';
-import { Identity, Name } from '@coinbase/onchainkit/identity';
+import { Identity, Name, Address } from '@coinbase/onchainkit/identity'; // Import komponen Base
 import { base } from 'viem/chains';
 
 // --- CONFIGURATION ---
@@ -24,57 +24,44 @@ const ABI = [
 ];
 
 // --- HELPER: GENERATE DETERMINISTIC AGENT ID ---
-// Menghasilkan 4 digit angka acak yang KONSISTEN berdasarkan address wallet
-// Input: Wallet Address (string) -> Output: 4 Digit String (e.g., "4532")
 const generateAgentId = (address: string): string => {
   if (!address) return "0000";
-  // Mengambil 4 byte terakhir dari address hash untuk dijadikan seed
   const cleanAddr = address.toLowerCase().replace('0x', '');
   const seed = parseInt(cleanAddr.slice(-4), 16);
-  // Modulo 10000 untuk dapat angka 0-9999
   const id = seed % 10000;
   return id.toString().padStart(4, '0');
 };
 
-// --- COMPONENT: AGENT DOSSIER ---
+// --- COMPONENT: AGENT DOSSIER (WITH BASENAME) ---
 const AgentDossier = ({ id, address, density, balance }: { id: string; address: string; density: number; balance: number }) => {
-  // Generate ID Agen yang konsisten dari address (Misal: #4532)
   const agentSerial = generateAgentId(address);
   
-  const tweetText = `Accessing classified file.%0A%0AMOLTZ AGENT ID: %23${agentSerial}%0ACLEARANCE: VERIFIED%0A%0AJoin the network on @Base.`;
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=https://moltz.xyz`;
+  const [copied, setCopied] = useState(false);
+  const referralLink = typeof window !== 'undefined' ? `${window.location.origin}?ref=${agentSerial}` : "";
 
-  // 1. LOGIC RANK (Time Based - Masih pakai ID NFT asli untuk menentukan senioritas/kapan join)
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const numId = parseInt(id);
   let agentRank = "FIELD_AGENT"; 
-  
   if (!isNaN(numId)) {
-    if (numId <= 100) {
-        agentRank = "FOUNDER_CIRCLE"; 
-    } else if (numId <= 500) {
-        agentRank = "VETERAN_AGENT"; 
-    }
+    if (numId <= 100) agentRank = "FOUNDER_CIRCLE"; 
+    else if (numId <= 500) agentRank = "VETERAN_AGENT"; 
   }
 
-  // 2. LOGIC CLASS (Holding Power - Quantity Based)
   let agentClass = "MOLTZ_SHARD"; 
   let classColor = "text-green-400"; 
-
-  if (balance >= 50) {
-      agentClass = "MOLTZ_SINGULARITY"; 
-      classColor = "text-red-600 font-black animate-pulse tracking-widest drop-shadow-[0_0_15px_rgba(220,38,38,0.9)] border border-red-900 px-1 bg-red-900/20";
-  } else if (balance >= 26) {
-      agentClass = "MOLTZ_MAINFRAME"; 
-      classColor = "text-purple-400 font-bold drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]";
-  } else if (balance >= 11) {
-      agentClass = "MOLTZ_NEXUS"; 
-      classColor = "text-cyan-400 font-bold";
-  } else if (balance >= 6) {
-      agentClass = "MOLTZ_CLUSTER"; 
-      classColor = "text-blue-400 font-bold";
-  }
+  if (balance >= 50) { agentClass = "MOLTZ_SINGULARITY"; classColor = "text-red-600 font-black animate-pulse border border-red-900 px-1 bg-red-900/20"; }
+  else if (balance >= 26) { agentClass = "MOLTZ_MAINFRAME"; classColor = "text-purple-400 font-bold"; }
+  else if (balance >= 11) { agentClass = "MOLTZ_NEXUS"; classColor = "text-cyan-400 font-bold"; }
+  else if (balance >= 6) { agentClass = "MOLTZ_CLUSTER"; classColor = "text-blue-400 font-bold"; }
 
   const extraUnits = balance > 1 ? balance - 1 : 0;
+  const tweetText = `I have been activated. AGENT ID: %23${agentSerial}.%0A%0AJoin the swarm on @Base.%0A${referralLink}`;
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
 
   return (
     <div className="my-2 w-full max-w-md border border-green-500 bg-black/90 p-4 font-mono text-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)] uppercase animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -84,55 +71,51 @@ const AgentDossier = ({ id, address, density, balance }: { id: string; address: 
       </div>
       
       <div className="space-y-2 text-xs mb-4">
-        {/* MOLTZ AGENT ID (DETERMINISTIC & RANDOM-LOOKING) */}
+        {/* AGENT ID */}
         <div className="flex justify-between items-center">
           <span className="opacity-70">MOLTZ AGENT ID</span>
           <div className="flex items-center gap-2">
              <span className="font-black text-black bg-green-500 px-2">#{agentSerial}</span>
-             {extraUnits > 0 && (
-                 <span className="text-[9px] text-green-400 border border-green-900 px-1 opacity-80">
-                   [+{extraUnits} ASSETS]
-                 </span>
-             )}
+             {extraUnits > 0 && <span className="text-[9px] text-green-400 border border-green-900 px-1 opacity-80">[+{extraUnits} ASSETS]</span>}
           </div>
         </div>
 
-        <div className="flex justify-between items-center">
-          <span className="opacity-70">WALLET_ID</span>
-          <span className="text-white">{address.slice(0, 6)}...{address.slice(-4)}</span>
+        {/* BASENAME INTEGRATION */}
+        <div className="flex justify-between items-center border-t border-green-900/30 pt-1 mt-1">
+          <span className="opacity-70">IDENTITY</span>
+          <div className="text-right">
+             <Identity 
+                address={address as `0x${string}`} 
+                schemaId="0xf8b05c79f0900139"
+                className="bg-transparent border-none p-0"
+             >
+                <Name className="text-white font-bold tracking-wider" />
+                {/* Fallback Address kalau gak punya basename */}
+                <Address className="text-[9px] text-zinc-500 font-mono opacity-50 block" /> 
+             </Identity>
+          </div>
         </div>
 
-        {/* RANK */}
-        <div className="flex justify-between items-center mt-2 border-t border-green-900/50 pt-2">
-          <span className="opacity-70">SERVICE RANK</span>
-          <span className="text-zinc-400">{agentRank}</span>
-        </div>
-
-        {/* CLASS */}
-        <div className="flex justify-between items-center">
-          <span className="opacity-70">AUTHORITY LEVEL</span>
-          <span className={`${classColor}`}>{agentClass}</span>
-        </div>
-        
-        <div className="flex justify-between items-center text-[10px] opacity-60">
-           <span>SECURED ASSETS</span>
-           <span>[{balance} UNITS]</span>
-        </div>
-
-        <div className="flex justify-between items-center border-t border-green-900 pt-2 mt-2">
-          <span className="opacity-70">GLOBAL_DENSITY</span>
-          <span>{density} / {TOTAL_SUPPLY}</span>
-        </div>
+        <div className="flex justify-between items-center mt-2 border-t border-green-900/50 pt-2"><span className="opacity-70">RANK</span><span className="text-zinc-400">{agentRank}</span></div>
+        <div className="flex justify-between items-center"><span className="opacity-70">CLASS</span><span className={`${classColor}`}>{agentClass}</span></div>
+        <div className="flex justify-between items-center border-t border-green-900 pt-2 mt-2"><span className="opacity-70">DENSITY</span><span>{density} / {TOTAL_SUPPLY}</span></div>
       </div>
 
-      <a 
-        href={tweetUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block w-full border border-green-700 bg-green-900/20 py-2 text-center text-[10px] font-bold text-green-400 hover:bg-green-500 hover:text-black transition-all cursor-pointer no-underline tracking-[0.2em]"
-      >
-        [ UPLOAD_STATUS_TO_X ]
-      </a>
+      {/* REFERRAL & SHARE BUTTONS */}
+      <div className="grid grid-cols-2 gap-2 mt-4">
+        <button 
+          onClick={handleCopyLink}
+          className={`border ${copied ? 'border-white bg-white text-black' : 'border-green-700 bg-green-900/20 text-green-400 hover:bg-green-500 hover:text-black'} py-2 text-center text-[10px] font-bold transition-all tracking-wider`}
+        >
+          {copied ? "LINK_COPIED" : "[ COPY RECRUIT_LINK ]"}
+        </button>
+        <a 
+          href={tweetUrl} target="_blank" rel="noopener noreferrer"
+          className="border border-green-700 bg-green-900/20 py-2 text-center text-[10px] font-bold text-green-400 hover:bg-green-500 hover:text-black transition-all tracking-wider"
+        >
+          [ SHARE_ON_X ]
+        </a>
+      </div>
     </div>
   );
 };
@@ -145,16 +128,29 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [utcTime, setUtcTime] = useState("");
   
+  // -- UPDATE TERMINAL LOGS: HAPUS LEADERBOARD --
   const [terminalLogs, setTerminalLogs] = useState<(string | React.JSX.Element)[]>([
     "// MOLTZ_OS V2.0 ONLINE", 
-    "// CONNECTING TO AGENT DATABASE...",
+    "// BASENAME_PROTOCOL: ENABLED",
     "// TYPE 'moltz --mint' TO MINT",
-    "// TYPE 'moltz --sync' TO LOGIN"
+    "// TYPE 'moltz --sync' TO LOGIN",
   ]);
   
   const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY" | "SYNC">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
   const [currentUser, setCurrentUser] = useState<{address: string, id: string, balance: number} | null>(null);
+  
+  // REFERRAL LOGIC
+  const [referrerId, setReferrerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const ref = searchParams.get('ref');
+    if (ref) {
+        setReferrerId(ref);
+        setTerminalLogs(prev => [...prev, `// DETECTED REFERRAL SIGNAL FROM AGENT #${ref}`]);
+    }
+  }, []);
 
   // --- SYNC DATA ---
   useEffect(() => {
@@ -190,21 +186,15 @@ export default function Home() {
   // --- SMART LOGIN LOGIC ---
   const checkWalletAccess = async (addressInput: string) => {
     setTerminalLogs(prev => [...prev, `> AUTHENTICATING: ${addressInput}...`]);
-    
     try {
-      if (!ethers.isAddress(addressInput)) {
-        throw new Error("INVALID_ADDRESS_FORMAT");
-      }
-
+      if (!ethers.isAddress(addressInput)) throw new Error("INVALID_ADDRESS_FORMAT");
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-      
       const balanceBig = await contract.balanceOf(addressInput);
       const balance = Number(balanceBig);
 
       if (balance > 0) {
         let foundTokenId = "???";
-
         try {
             const tokenId = await contract.tokenOfOwnerByIndex(addressInput, 0); 
             foundTokenId = tokenId.toString();
@@ -221,20 +211,19 @@ export default function Home() {
         }
 
         setCurrentUser({ address: addressInput, id: foundTokenId, balance: balance });
-           
+        
         setTerminalLogs(prev => [
             ...prev, 
             "// ACCESS GRANTED.", 
             "// AGENT PROFILE LOADED.", 
             `// ASSETS SECURED: ${balance}`,
-            "// HINT: TYPE 'whoami' TO VIEW FILE"
+            "// HINT: TYPE 'whoami' TO REVEAL IDENTITY"
         ]);
-
       } else {
         throw new Error("NO_ASSETS_FOUND");
       }
     } catch (error) {
-      setTerminalLogs(prev => [...prev, `// ERROR: ACCESS DENIED / NOT AN AGENT`]);
+      setTerminalLogs(prev => [...prev, `// ERROR: ACCESS DENIED / MUST BE AN AGENT TO LOGIN`]);
     }
     setTerminalStep("COMMAND");
   };
@@ -268,13 +257,18 @@ export default function Home() {
       
       setCurrentUser({ address: wallet.address, id: newId, balance: balance });
 
+      if (referrerId) {
+          const currentCount = localStorage.getItem(`moltz_recruits_${referrerId}`) || "0";
+          const newCount = parseInt(currentCount) + 1;
+          localStorage.setItem(`moltz_recruits_${referrerId}`, newCount.toString());
+      }
+
       setTerminalLogs(prev => [
         ...prev, 
         "// RECRUITMENT_SUCCESSFUL",
         `// AGENT ASSIGNED: #${generateAgentId(wallet.address)}`,
-        "// HINT: TYPE 'whoami' TO VIEW FILE"
+        "// HINT: TYPE 'whoami' TO VIEW DOSSIER"
       ]);
-
     } catch (error: any) {
       setTerminalLogs(prev => [...prev, `// [ERROR]: MINT_FAILED`]);
     }
@@ -292,9 +286,7 @@ export default function Home() {
         const res = await fetch(`${METADATA_GATEWAY}/${i}`);
         const data = await res.json();
         newItems.push({ id: i, attributes: data.attributes || [] });
-      } catch {
-        newItems.push({ id: i, attributes: [] });
-      }
+      } catch { newItems.push({ id: i, attributes: [] }); }
     }
     setItems((prev) => [...prev, ...newItems]);
     setIsLoading(false);
@@ -309,8 +301,6 @@ export default function Home() {
   return (
     <OnchainKitProvider chain={base}>
       <main className="min-h-screen bg-black text-white font-mono p-6 md:p-12 uppercase selection:bg-red-600">
-        
-        {/* HEADER */}
         <header className="max-w-6xl mx-auto flex justify-between items-start border-b border-zinc-900 pb-8">
           <div>
             <h1 className="text-6xl font-black tracking-tighter text-red-600 italic leading-none">MOLTZ</h1>
@@ -333,68 +323,44 @@ export default function Home() {
               </div>
             </section>
 
-            {/* TERMINAL SECTION */}
             <section className="bg-zinc-950 border border-zinc-900 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.05)]">
               <div className="bg-zinc-900 px-4 py-1 flex justify-between items-center text-[8px] font-bold text-zinc-500 italic uppercase">
                 <span>MODE: LOCAL_TERMINAL</span>
                 <span>FEE: {MINT_PRICE}</span>
               </div>
-              
               <div className="p-4 h-64 overflow-y-auto text-[10px] space-y-1 bg-black/90 scrollbar-hide font-bold text-green-500">
-                {terminalLogs.map((log, i) => (
-                   <div key={i}>{typeof log === 'string' ? log : log}</div>
-                ))}
+                {terminalLogs.map((log, i) => (<div key={i}>{typeof log === 'string' ? log : log}</div>))}
                 {isMinting && <div className="text-white animate-pulse">// PROCESSING_RECRUITMENT...</div>}
               </div>
-
               <div className="p-3 border-t border-zinc-900 bg-black flex items-center">
                 <span className="text-red-600 mr-2 font-bold">{">"}</span>
                 <input 
                   type={terminalStep === "KEY" ? "password" : "text"} 
                   placeholder={
                     terminalStep === "COMMAND" ? "TYPE 'whoami' OR 'moltz --mint' OR 'moltz --sync'" : 
-                    terminalStep === "SYNC" ? "ENTER WALLET ADDRESS (0x...)" :
-                    "ENTER PRIVATE KEY"
+                    terminalStep === "SYNC" ? "ENTER WALLET ADDRESS (0x...)" : "ENTER PRIVATE KEY"
                   }
                   className="bg-transparent border-none outline-none text-red-500 text-xs w-full placeholder:text-zinc-900 font-bold uppercase"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const val = e.currentTarget.value.trim();
-                      
                       if (terminalStep === "COMMAND") {
                         if (val.toLowerCase() === "moltz --mint") {
                           setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_RECRUITMENT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
                           setTerminalStep("KEY");
-                        } 
-                        else if (val.toLowerCase() === "moltz --sync") {
+                        } else if (val.toLowerCase() === "moltz --sync") {
                            setTerminalLogs(prev => [...prev, `> ${val}`, "// ENTER_WALLET_ADDRESS:"]);
                            setTerminalStep("SYNC");
-                        }
-                        else if (val.toLowerCase() === "whoami") {
+                        } else if (val.toLowerCase() === "whoami") {
                            setTerminalLogs(prev => [...prev, `> ${val}`]);
                            if (currentUser) {
                              setTerminalLogs(prev => [...prev, 
-                               <AgentDossier 
-                                 key={Date.now()} 
-                                 id={currentUser.id} 
-                                 address={currentUser.address} 
-                                 density={mintedCount} 
-                                 balance={currentUser.balance} 
-                               />
+                               <AgentDossier key={Date.now()} id={currentUser.id} address={currentUser.address} density={mintedCount} balance={currentUser.balance} />
                              ]);
-                           } else {
-                             setTerminalLogs(prev => [...prev, "// ERROR: AGENT_NOT_FOUND", "// TRY: 'moltz --sync'"]);
-                           }
-                        }
-                        else {
-                          setTerminalLogs(prev => [...prev, `> ${val}`, "// ERROR: UNKNOWN_CMD"]);
-                        }
-
-                      } else if (terminalStep === "SYNC") {
-                        checkWalletAccess(val);
-                      } else {
-                        executeWebMint(val);
-                      }
+                           } else { setTerminalLogs(prev => [...prev, "// ERROR: AGENT_NOT_FOUND", "// TRY: 'moltz --sync'"]); }
+                        } else { setTerminalLogs(prev => [...prev, `> ${val}`, "// ERROR: UNKNOWN_CMD"]); }
+                      } else if (terminalStep === "SYNC") { checkWalletAccess(val); } 
+                      else { executeWebMint(val); }
                       e.currentTarget.value = "";
                     }
                   }}
@@ -419,7 +385,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* RECENT INJECTIONS */}
         <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
             <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_RECRUITS</h3>
             <div className="grid grid-cols-1 gap-2"> 
@@ -440,7 +405,6 @@ export default function Home() {
             </div>
         </div>
 
-        {/* FEED GALLERY */}
         <div className="max-w-6xl mx-auto mt-20 mb-40">
           <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
