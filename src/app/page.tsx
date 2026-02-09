@@ -15,10 +15,74 @@ const MINT_PRICE = "0.0005 ETH";
 const METADATA_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeihqdpz4bxa4ssj33hhfmyihxyro72faacxskup37mujq2dszfe5by";
 const IMAGE_GATEWAY = "https://gateway.lighthouse.storage/ipfs/bafybeid7efvwiptloh2zwncx5agrvfkhjq65uhgcdcffrelb2gm2grgvdm";
 
+// [UPDATE ABI] Menambahkan tokenOfOwnerByIndex untuk akses cepat
 const ABI = [
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
-  "function totalSupply() view returns (uint256)"
+  "function totalSupply() view returns (uint256)",
+  "function mint(uint256 amount, bytes signature) external payable",
+  "function balanceOf(address owner) view returns (uint256)",
+  "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)" 
 ];
+
+// --- COMPONENT: AGENT DOSSIER ---
+const AgentDossier = ({ id, address, density }: { id: string; address: string; density: number }) => {
+  const tweetText = `Identity confirmed.%0A%0AI am MOLTZ %23${id}.%0A%0AThe network is forming on @Base.`;
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=https://moltz.xyz`;
+
+  // Logic Class & Color
+  const numId = parseInt(id);
+  let agentClass = "GRID_RUNNER";
+  let classColor = "text-green-400";
+
+  if (!isNaN(numId)) {
+    if (numId <= 100) {
+        agentClass = "GENESIS_PRIME"; // 1-100
+        classColor = "text-red-500 animate-pulse";
+    } else if (numId <= 1000) {
+        agentClass = "CORE_OPERATOR"; // 101-1000
+        classColor = "text-yellow-400";
+    }
+  } else {
+      agentClass = "UNKNOWN_UNIT"; // Jika ID gagal load
+  }
+
+  return (
+    <div className="my-2 w-full max-w-md border border-green-500 bg-black/90 p-4 font-mono text-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)] uppercase animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <div className="mb-4 border-b border-green-500 pb-2 text-[10px] tracking-widest opacity-80 flex justify-between">
+        <span>// SUBJECT_VERIFICATION //</span>
+        <span className="animate-pulse text-green-400">● ONLINE</span>
+      </div>
+      
+      <div className="space-y-2 text-xs mb-4">
+        <div className="flex justify-between items-center">
+          <span className="opacity-70">UNIT_ID</span>
+          <span className="font-black text-black bg-green-500 px-2">MOLTZ #{id}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="opacity-70">OWNER</span>
+          <span className="text-white">{address.slice(0, 6)}...{address.slice(-4)}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="opacity-70">CLASS</span>
+          <span className={`${classColor} font-bold`}>{agentClass}</span>
+        </div>
+        <div className="flex justify-between items-center border-t border-green-900 pt-2 mt-2">
+          <span className="opacity-70">NETWORK_DENSITY</span>
+          <span>{density} / {TOTAL_SUPPLY}</span>
+        </div>
+      </div>
+
+      <a 
+        href={tweetUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-full border border-green-700 bg-green-900/20 py-2 text-center text-[10px] font-bold text-green-400 hover:bg-green-500 hover:text-black transition-all cursor-pointer no-underline tracking-[0.2em]"
+      >
+        [ BROADCAST_SIGNAL_TO_X ]
+      </a>
+    </div>
+  );
+};
 
 export default function Home() {
   const [items, setItems] = useState<any[]>([]); 
@@ -28,10 +92,16 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [utcTime, setUtcTime] = useState("");
   
-  // Terminal States
-  const [terminalLogs, setTerminalLogs] = useState<string[]>(["// MOLTZ_OS V1.8.7 READY", "// MONITORING_BASE_CHAIN..."]);
-  const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY">("COMMAND");
+  const [terminalLogs, setTerminalLogs] = useState<(string | React.JSX.Element)[]>([
+    "// MOLTZ_OS V1.1 ONLINE", 
+    "// MONITORING_BASE_CHAIN...",
+    "// TYPE 'moltz --mint' TO MINT",
+    "// TYPE 'moltz --sync' TO LOGIN"
+  ]);
+  
+  const [terminalStep, setTerminalStep] = useState<"COMMAND" | "KEY" | "SYNC">("COMMAND");
   const [isMinting, setIsMinting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{address: string, id: string} | null>(null);
 
   // --- SYNC DATA ---
   useEffect(() => {
@@ -64,6 +134,64 @@ export default function Home() {
     return () => { clearInterval(timer); clearInterval(clockTimer); };
   }, []);
 
+  // --- SMART LOGIN LOGIC (ANTI-FAIL) ---
+  const checkWalletAccess = async (addressInput: string) => {
+    setTerminalLogs(prev => [...prev, `> VERIFYING: ${addressInput}...`]);
+    
+    try {
+      if (!ethers.isAddress(addressInput)) {
+        throw new Error("INVALID_ADDRESS_FORMAT");
+      }
+
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+      
+      // 1. Cek Balance (Cara paling valid & ringan)
+      const balance = await contract.balanceOf(addressInput);
+
+      if (Number(balance) > 0) {
+        let foundTokenId = "???"; // Default jika RPC gagal fetch ID
+
+        // 2. Coba cara cepat (ERC721Enumerable)
+        try {
+            const tokenId = await contract.tokenOfOwnerByIndex(addressInput, 0); // Ambil token pertama
+            foundTokenId = tokenId.toString();
+        } catch (e) {
+            // 3. Jika gagal, coba scan manual (Fallback)
+            // Kita cuma scan 5000 blok terakhir biar gak Timeout
+            try {
+                const latestBlock = await provider.getBlockNumber();
+                const filter = contract.filters.Transfer(null, addressInput);
+                const events = await contract.queryFilter(filter, latestBlock - 5000, latestBlock);
+                if (events.length > 0) {
+                    const latestEvent: any = events[events.length - 1];
+                    foundTokenId = latestEvent.args[2].toString();
+                }
+            } catch (err) {
+                console.log("Scan failed, but access granted via balance");
+            }
+        }
+
+        // LOGIN SUKSES (Meskipun ID masih ???)
+        setCurrentUser({ address: addressInput, id: foundTokenId });
+           
+        setTerminalLogs(prev => [
+            ...prev, 
+            "// ACCESS GRANTED.", 
+            "// SESSION RESTORED.", 
+            `// FOUND_ID: MOLTZ #${foundTokenId}`,
+            "// HINT: TYPE 'whoami' TO VIEW DOSSIER"
+        ]);
+
+      } else {
+        throw new Error("NO_ASSETS_FOUND");
+      }
+    } catch (error) {
+      setTerminalLogs(prev => [...prev, `// ERROR: ACCESS DENIED / NOT FOUND`]);
+    }
+    setTerminalStep("COMMAND");
+  };
+
   // --- MINTING LOGIC ---
   const executeWebMint = async (privateKey: string) => {
     if (!privateKey || isMinting) return;
@@ -86,7 +214,17 @@ export default function Home() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ["function mint(uint256 amount, bytes signature) external payable"], wallet);
       const tx = await contract.mint(1, data.signature, { value: ethers.parseEther("0.0005") });
       await tx.wait();
-      setTerminalLogs(prev => [...prev, "// INJECTION_SUCCESSFUL"]);
+
+      const newId = (mintedCount + 1).toString();
+      setCurrentUser({ address: wallet.address, id: newId });
+
+      setTerminalLogs(prev => [
+        ...prev, 
+        "// INJECTION_SUCCESSFUL",
+        `// IDENTITY ACQUIRED: MOLTZ #${newId}`,
+        "// HINT: TYPE 'whoami' TO VIEW DOSSIER"
+      ]);
+
     } catch (error: any) {
       setTerminalLogs(prev => [...prev, `// [ERROR]: MINT_FAILED`]);
     }
@@ -138,9 +276,6 @@ export default function Home() {
 
         <div className="max-w-6xl mx-auto mt-16 grid grid-cols-1 md:grid-cols-2 gap-16 items-start border-b border-zinc-900 pb-20">
           <div className="space-y-10">
-            <div className="bg-red-600 text-black p-2 text-center font-black tracking-[0.5em] italic animate-pulse font-mono uppercase">// FREE_MINT_ACTIVE_NOW //</div>
-
-            {/* CURL SECTION */}
             <section className="bg-zinc-950 p-6 border border-zinc-900">
               <h3 className="text-[10px] text-zinc-500 mb-4 tracking-widest font-bold font-mono uppercase">// 01_REMOTE_INJECTION</h3>
               <div className="bg-black p-4 border border-zinc-800">
@@ -148,32 +283,64 @@ export default function Home() {
               </div>
             </section>
 
-            {/* TERMINAL SECTION - FIXED INPUT LOGIC */}
+            {/* TERMINAL SECTION */}
             <section className="bg-zinc-950 border border-zinc-900 overflow-hidden shadow-[0_0_20px_rgba(220,38,38,0.05)]">
               <div className="bg-zinc-900 px-4 py-1 flex justify-between items-center text-[8px] font-bold text-zinc-500 italic uppercase">
                 <span>MODE: LOCAL_TERMINAL</span>
                 <span>FEE: {MINT_PRICE}</span>
               </div>
-              <div className="p-4 h-32 overflow-y-auto text-[10px] space-y-1 bg-black/50 scrollbar-hide font-bold text-green-500">
-                {terminalLogs.map((log, i) => <div key={i}>{log}</div>)}
+              
+              <div className="p-4 h-64 overflow-y-auto text-[10px] space-y-1 bg-black/90 scrollbar-hide font-bold text-green-500">
+                {terminalLogs.map((log, i) => (
+                   <div key={i}>{typeof log === 'string' ? log : log}</div>
+                ))}
                 {isMinting && <div className="text-white animate-pulse">// PROCESSING_INJECTION...</div>}
               </div>
+
               <div className="p-3 border-t border-zinc-900 bg-black flex items-center">
                 <span className="text-red-600 mr-2 font-bold">{">"}</span>
                 <input 
-                  type={terminalStep === "KEY" ? "password" : "text"}
-                  placeholder={terminalStep === "COMMAND" ? "TYPE 'moltz --mint' TO START" : "ENTER PRIVATE KEY"}
+                  type={terminalStep === "KEY" ? "password" : "text"} 
+                  placeholder={
+                    terminalStep === "COMMAND" ? "TYPE 'whoami' OR 'moltz --mint' OR 'moltz --sync'" : 
+                    terminalStep === "SYNC" ? "ENTER WALLET ADDRESS (0x...)" :
+                    "ENTER PRIVATE KEY"
+                  }
                   className="bg-transparent border-none outline-none text-red-500 text-xs w-full placeholder:text-zinc-900 font-bold uppercase"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const val = e.currentTarget.value.trim();
+                      
                       if (terminalStep === "COMMAND") {
                         if (val.toLowerCase() === "moltz --mint") {
                           setTerminalLogs(prev => [...prev, `> ${val}`, "// ACCESSING_MINT_MODULE...", "// ENTER_PRIVATE_KEY:"]);
                           setTerminalStep("KEY");
-                        } else {
+                        } 
+                        else if (val.toLowerCase() === "moltz --sync") {
+                           setTerminalLogs(prev => [...prev, `> ${val}`, "// ENTER_WALLET_ADDRESS:"]);
+                           setTerminalStep("SYNC");
+                        }
+                        else if (val.toLowerCase() === "whoami") {
+                           setTerminalLogs(prev => [...prev, `> ${val}`]);
+                           if (currentUser) {
+                             setTerminalLogs(prev => [...prev, 
+                               <AgentDossier 
+                                 key={Date.now()} 
+                                 id={currentUser.id} 
+                                 address={currentUser.address} 
+                                 density={mintedCount} 
+                               />
+                             ]);
+                           } else {
+                             setTerminalLogs(prev => [...prev, "// ERROR: IDENTITY_NOT_FOUND", "// TRY: 'moltz --sync'"]);
+                           }
+                        }
+                        else {
                           setTerminalLogs(prev => [...prev, `> ${val}`, "// ERROR: UNKNOWN_CMD"]);
                         }
+
+                      } else if (terminalStep === "SYNC") {
+                        checkWalletAccess(val);
                       } else {
                         executeWebMint(val);
                       }
@@ -201,7 +368,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* RECENT INJECTIONS - 10 ITEMS */}
+        {/* RECENT INJECTIONS */}
         <div className="max-w-6xl mx-auto py-12 border-b border-zinc-900">
             <h3 className="text-[10px] text-zinc-600 tracking-[0.3em] font-bold mb-8 uppercase italic underline decoration-red-900 decoration-2 underline-offset-8">// RECENT_MOLTZ_INJECTIONS</h3>
             <div className="grid grid-cols-1 gap-2"> 
@@ -222,9 +389,9 @@ export default function Home() {
             </div>
         </div>
 
-        {/* FEED GALLERY - TRAITS: TYPE: VALUE */}
+        {/* FEED GALLERY */}
         <div className="max-w-6xl mx-auto mt-20 mb-40">
-          <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_FEED</h2>
+          <h2 className="text-2xl font-black text-red-600 mb-12 italic underline decoration-red-900 underline-offset-8 tracking-tighter">// MOLTZ_GALLERY</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {recentMints.length > 0 && items.map((item) => (
               <div key={item.id} className="bg-zinc-950 border border-zinc-900 hover:border-red-600 transition-all duration-300">
