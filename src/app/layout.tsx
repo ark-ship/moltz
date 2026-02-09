@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     "fc:frame:image": `${BASE_URL}/preview.png`, // Gambar tampilan di Warpcast
     "fc:frame:button:1": "MINT AGENT ID [0.0005 ETH]", // Tulisan tombol
     "fc:frame:button:1:action": "tx", // Tipe aksi: Transaksi
-    "fc:frame:button:1:target": `${BASE_URL}/api/frame/mint`, // API Minting (Pastikan folder api/frame/mint sudah dibuat)
+    "fc:frame:button:1:target": `${BASE_URL}/api/frame/transaction`, // API Minting (Pastikan folder api/frame/mint sudah dibuat)
     "fc:frame:post_url": `${BASE_URL}/api/frame/success`, // API Sukses
   },
 };
